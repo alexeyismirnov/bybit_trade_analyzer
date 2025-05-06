@@ -8,15 +8,88 @@ new Vue({
         averageRoi: 0,
         winRate: 0,
         selectedSymbol: '',
+        selectedTimePeriod: '30',  // Default to 30 days
         pnlChart: null,
-        uniqueSymbols: []
+        uniqueSymbols: [],
+        timePeriods: [
+            { label: '7D', value: '7' },
+            { label: '30D', value: '30' },
+            { label: '90D', value: '90' },
+            { label: '180D', value: '180' },
+            { label: '1Y', value: '365' }
+        ],
+        // Pagination
+        currentPage: 1,
+        pageSize: 10,
+        pageSizeOptions: [10, 25, 50, 100]
     },
     computed: {
-        filteredTrades() {
+        // Filter trades by symbol
+        symbolFilteredTrades() {
             if (!this.selectedSymbol) {
-                return this.trades;
+                return [...this.trades];
             }
             return this.trades.filter(trade => trade.symbol === this.selectedSymbol);
+        },
+        // Sort by timestamp (newest first for table)
+        sortedTrades() {
+            return [...this.symbolFilteredTrades].sort((a, b) => 
+                parseInt(b.created_at) - parseInt(a.created_at)
+            );
+        },
+        // Get current page of trades
+        paginatedTrades() {
+            const startIndex = (this.currentPage - 1) * this.pageSize;
+            return this.sortedTrades.slice(startIndex, startIndex + this.pageSize);
+        },
+        // Calculate total number of pages
+        totalPages() {
+            return Math.ceil(this.sortedTrades.length / this.pageSize);
+        },
+        // Generate page numbers array for pagination controls
+        pageNumbers() {
+            const pages = [];
+            const maxVisiblePages = 5;
+            
+            if (this.totalPages <= maxVisiblePages) {
+                // If we have fewer pages than our max, show all pages
+                for (let i = 1; i <= this.totalPages; i++) {
+                    pages.push(i);
+                }
+            } else {
+                // Always include first page
+                pages.push(1);
+                
+                // Calculate start and end of visible page range
+                let start = Math.max(2, this.currentPage - 1);
+                let end = Math.min(this.totalPages - 1, this.currentPage + 1);
+                
+                // Adjust start and end to always show 3 pages
+                if (start === 2) end = Math.min(4, this.totalPages - 1);
+                if (end === this.totalPages - 1) start = Math.max(2, this.totalPages - 3);
+                
+                // Add ellipsis if needed
+                if (start > 2) pages.push('...');
+                
+                // Add visible page numbers
+                for (let i = start; i <= end; i++) {
+                    pages.push(i);
+                }
+                
+                // Add ellipsis if needed
+                if (end < this.totalPages - 1) pages.push('...');
+                
+                // Always include last page
+                pages.push(this.totalPages);
+            }
+            
+            return pages;
+        },
+        // For chart data, we need all trades sorted by time (oldest first)
+        chartTrades() {
+            return [...this.symbolFilteredTrades].sort((a, b) => 
+                parseInt(a.created_at) - parseInt(b.created_at)
+            );
         }
     },
     mounted() {
@@ -24,18 +97,30 @@ new Vue({
     },
     watch: {
         selectedSymbol() {
+            this.currentPage = 1;  // Reset to first page when changing symbol
             this.calculateSummary();
             this.updateChart();
+        },
+        pageSize() {
+            this.currentPage = 1;  // Reset to first page when changing page size
         }
     },
     methods: {
+        setTimePeriod(days) {
+            if (this.selectedTimePeriod !== days) {
+                this.selectedTimePeriod = days;
+                this.currentPage = 1;  // Reset to first page when changing time period
+                this.fetchTrades();
+            }
+        },
         fetchTrades() {
             this.loading = true;
             this.error = null;
             
-            let url = '/api/trades';
+            // Build the URL with query parameters
+            let url = '/api/trades?days=' + this.selectedTimePeriod;
             if (this.selectedSymbol) {
-                url += `?symbol=${this.selectedSymbol}`;
+                url += `&symbol=${this.selectedSymbol}`;
             }
             
             axios.get(url)
@@ -45,11 +130,6 @@ new Vue({
                         
                         // Extract unique symbols
                         this.uniqueSymbols = [...new Set(this.trades.map(trade => trade.symbol))];
-                        
-                        // Sort trades by date (oldest first) for the chart
-                        this.trades.sort((a, b) => {
-                            return parseInt(a.created_at) - parseInt(b.created_at);
-                        });
                         
                         this.calculateSummary();
                         this.initChart();
@@ -65,7 +145,7 @@ new Vue({
                 });
         },
         calculateSummary() {
-            const trades = this.filteredTrades;
+            const trades = this.sortedTrades;
             
             // Calculate total PnL
             this.totalPnl = trades.reduce((sum, trade) => {
@@ -106,10 +186,8 @@ new Vue({
                 return;
             }
             
-            // Sort trades by date (oldest first)
-            const tradesToChart = [...this.filteredTrades].sort((a, b) => {
-                return parseInt(a.created_at) - parseInt(b.created_at);
-            });
+            // Use chartTrades (oldest first for chart)
+            const tradesToChart = this.chartTrades;
             
             // Calculate cumulative PnL
             let cumulativePnl = 0;
@@ -146,7 +224,7 @@ new Vue({
                             x: {
                                 type: 'time',
                                 time: {
-                                    unit: 'day'
+                                    unit: this.getTimeUnit(this.selectedTimePeriod)
                                 },
                                 title: {
                                     display: true,
@@ -174,11 +252,33 @@ new Vue({
             } else {
                 // Display a message if no data
                 const ctx2d = ctx.getContext('2d');
+                ctx2d.clearRect(0, 0, ctx.width, ctx.height);
                 ctx2d.font = '16px Arial';
                 ctx2d.fillStyle = '#666';
                 ctx2d.textAlign = 'center';
                 ctx2d.fillText('No trade data available', ctx.width / 2, ctx.height / 2);
             }
+        },
+        changePage(page) {
+            if (page === '...' || page < 1 || page > this.totalPages) return;
+            this.currentPage = page;
+        },
+        previousPage() {
+            if (this.currentPage > 1) {
+                this.currentPage--;
+            }
+        },
+        nextPage() {
+            if (this.currentPage < this.totalPages) {
+                this.currentPage++;
+            }
+        },
+        getTimeUnit(days) {
+            // Choose appropriate time unit based on selected period
+            const daysNum = parseInt(days);
+            if (daysNum <= 7) return 'day';
+            if (daysNum <= 90) return 'week';
+            return 'month';
         },
         formatPrice(price) {
             if (!price) return '-';
