@@ -45,25 +45,6 @@ def index():
     """Render the main page"""
     return render_template('index.html')
 
-@app.route('/api/symbols')
-def get_symbols():
-    """Fetch available USDT Perpetual trading pairs from Bybit"""
-    try:
-        # V5 API endpoint for linear (USDT) perpetual symbols
-        url = "https://api.bybit.com/v5/market/instruments-info?category=linear"
-        response = requests.get(url)
-        data = response.json()
-        
-        if data['retCode'] == 0 and 'list' in data['result']:
-            # Filter for USDT perpetual symbols only
-            symbols = [item['symbol'] for item in data['result']['list'] if item['symbol'].endswith('USDT')]
-            return jsonify({'success': True, 'symbols': symbols})
-        else:
-            return jsonify({'success': False, 'error': data.get('retMsg', 'Failed to fetch symbols')})
-
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
 @app.route('/api/trades')
 def get_trades():
     """Fetch completed USDT Perpetual trades from Bybit Unified Account"""
