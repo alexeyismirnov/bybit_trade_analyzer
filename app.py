@@ -5,7 +5,6 @@ import time
 import hmac
 import hashlib
 import json
-import urllib.parse
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -180,5 +179,7 @@ def process_trade(trade):
     trade['closed_pnl'] = trade.get('closedPnl', '')
     trade['created_at'] = str(int(int(trade.get('updatedTime', '0'))/1000))  # Convert to seconds
 
+# Use PORT environment variable for Railway
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)

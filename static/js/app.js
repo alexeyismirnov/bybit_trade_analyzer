@@ -1,3 +1,5 @@
+// static/js/app.js
+
 new Vue({
     el: '#app',
     data: {
@@ -7,9 +9,10 @@ new Vue({
         totalPnl: 0,
         averageRoi: 0,
         winRate: 0,
+        drawRate: 0,
+        lossRate: 0,
         selectedSymbol: '',
         selectedTimePeriod: '30',  // Default to 30 days
-        pnlChart: null,
         uniqueSymbols: [],
         timePeriods: [
             { label: '7D', value: '7' },
@@ -85,21 +88,45 @@ new Vue({
             
             return pages;
         },
-        // For chart data, we need all trades sorted by time (oldest first)
-        chartTrades() {
-            return [...this.symbolFilteredTrades].sort((a, b) => 
-                parseInt(a.created_at) - parseInt(b.created_at)
-            );
+        // Calculate trade distribution data
+        tradeDistribution() {
+            const trades = this.symbolFilteredTrades;
+            let wins = 0, losses = 0, draws = 0;
+            
+            trades.forEach(trade => {
+                const roi = parseFloat(trade.roi || 0);
+                if (Math.abs(roi) < 1) {
+                    draws++;
+                } else if (roi >= 1) {
+                    wins++;
+                } else {
+                    losses++;
+                }
+            });
+            
+            const total = trades.length;
+            return {
+                wins,
+                losses,
+                draws,
+                winRate: total > 0 ? (wins / total * 100).toFixed(2) : 0,
+                lossRate: total > 0 ? (losses / total * 100).toFixed(2) : 0,
+                drawRate: total > 0 ? (draws / total * 100).toFixed(2) : 0
+            };
         }
     },
     mounted() {
         this.fetchTrades();
     },
+    beforeDestroy() {
+        // Clean up charts when component is destroyed
+        ChartManager.destroyAllCharts();
+    },
     watch: {
         selectedSymbol() {
             this.currentPage = 1;  // Reset to first page when changing symbol
             this.calculateSummary();
-            this.updateChart();
+            this.updateCharts();
         },
         pageSize() {
             this.currentPage = 1;  // Reset to first page when changing page size
@@ -132,7 +159,7 @@ new Vue({
                         this.uniqueSymbols = [...new Set(this.trades.map(trade => trade.symbol))];
                         
                         this.calculateSummary();
-                        this.initChart();
+                        this.updateCharts();
                     } else {
                         this.error = response.data.error || 'Failed to fetch trades';
                     }
@@ -146,6 +173,7 @@ new Vue({
         },
         calculateSummary() {
             const trades = this.sortedTrades;
+            const distribution = this.tradeDistribution;
             
             // Calculate total PnL
             this.totalPnl = trades.reduce((sum, trade) => {
@@ -159,105 +187,20 @@ new Vue({
             
             this.averageRoi = trades.length > 0 ? totalRoi / trades.length : 0;
             
-            // Calculate win rate
-            const winningTrades = trades.filter(trade => parseFloat(trade.closed_pnl) > 0).length;
-            this.winRate = trades.length > 0 ? ((winningTrades / trades.length) * 100).toFixed(2) : 0;
+            // Set rates from distribution
+            this.winRate = distribution.winRate;
+            this.drawRate = distribution.drawRate;
+            this.lossRate = distribution.lossRate;
         },
-        initChart() {
-            // Make sure to properly destroy the existing chart before creating a new one
-            if (this.pnlChart) {
-                this.pnlChart.destroy();
-                this.pnlChart = null;
-            }
+        updateCharts() {
+            // Get time unit based on selected period
+            const timeUnit = ChartManager.getTimeUnit(this.selectedTimePeriod);
             
-            // Create a new chart
-            this.updateChart();
-        },
-        updateChart() {
-            // Make sure to properly destroy the existing chart before updating
-            if (this.pnlChart) {
-                this.pnlChart.destroy();
-                this.pnlChart = null;
-            }
+            // Create/update the PnL chart
+            ChartManager.createPnlChart('pnlChart', this.symbolFilteredTrades, timeUnit);
             
-            const ctx = document.getElementById('pnlChart');
-            if (!ctx) {
-                console.error('Canvas element not found');
-                return;
-            }
-            
-            // Use chartTrades (oldest first for chart)
-            const tradesToChart = this.chartTrades;
-            
-            // Calculate cumulative PnL
-            let cumulativePnl = 0;
-            const chartData = tradesToChart.map(trade => {
-                cumulativePnl += parseFloat(trade.closed_pnl || 0);
-                return {
-                    x: new Date(parseInt(trade.created_at) * 1000),
-                    y: cumulativePnl
-                };
-            });
-            
-            // Only create chart if we have data
-            if (chartData.length > 0) {
-                // Create the chart
-                this.pnlChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        datasets: [{
-                            label: 'Cumulative PnL',
-                            data: chartData,
-                            borderColor: 'rgb(75, 192, 192)',
-                            tension: 0.1,
-                            fill: {
-                                target: 'origin',
-                                above: 'rgba(75, 192, 192, 0.2)',
-                                below: 'rgba(255, 99, 132, 0.2)'
-                            }
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: {
-                                type: 'time',
-                                time: {
-                                    unit: this.getTimeUnit(this.selectedTimePeriod)
-                                },
-                                title: {
-                                    display: true,
-                                    text: 'Date'
-                                }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Cumulative PnL'
-                                }
-                            }
-                        },
-                        plugins: {
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return `PnL: ${context.parsed.y.toFixed(4)}`;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            } else {
-                // Display a message if no data
-                const ctx2d = ctx.getContext('2d');
-                ctx2d.clearRect(0, 0, ctx.width, ctx.height);
-                ctx2d.font = '16px Arial';
-                ctx2d.fillStyle = '#666';
-                ctx2d.textAlign = 'center';
-                ctx2d.fillText('No trade data available', ctx.width / 2, ctx.height / 2);
-            }
+            // Create/update the distribution chart
+            ChartManager.createDistributionChart('distributionChart', this.tradeDistribution);
         },
         changePage(page) {
             if (page === '...' || page < 1 || page > this.totalPages) return;
@@ -273,13 +216,6 @@ new Vue({
                 this.currentPage++;
             }
         },
-        getTimeUnit(days) {
-            // Choose appropriate time unit based on selected period
-            const daysNum = parseInt(days);
-            if (daysNum <= 7) return 'day';
-            if (daysNum <= 90) return 'week';
-            return 'month';
-        },
         formatPrice(price) {
             if (!price) return '-';
             return parseFloat(price).toFixed(2);
@@ -293,8 +229,20 @@ new Vue({
             return parseFloat(roi).toFixed(2) + '%';
         },
         getPnlClass(value) {
-            if (!value) return '';
-            return parseFloat(value) >= 0 ? 'positive' : 'negative';
+            // Explicitly handle all cases to ensure proper coloring
+            if (value === undefined || value === null) return '';
+            
+            // Convert to number to ensure proper comparison
+            const numValue = parseFloat(value);
+            
+            // Handle NaN case
+            if (isNaN(numValue)) return '';
+            
+            // For ROI, consider less than 1% (absolute) as a draw
+            if (Math.abs(numValue) < 1) return '';
+            
+            // Apply appropriate class based on value
+            return numValue >= 1 ? 'positive' : (numValue <= -1 ? 'negative' : '');
         }
     }
 });
