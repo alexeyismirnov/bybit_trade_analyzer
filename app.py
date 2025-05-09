@@ -4,9 +4,9 @@ import requests
 import time
 import hmac
 import hashlib
-import json
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from cache_manager import CacheManager
 
 # Load environment variables from .env file
 load_dotenv()
@@ -16,6 +16,10 @@ app = Flask(__name__)
 # Bybit API credentials (loaded from environment variables)
 API_KEY = os.environ.get('BYBIT_API_KEY', '')
 API_SECRET = os.environ.get('BYBIT_API_SECRET', '')
+
+# Initialize cache manager
+DB_URL = os.environ.get('DATABASE_URL', '')
+cache_manager = CacheManager(DB_URL)
 
 def get_signature(timestamp, recv_window, query_string):
     """
@@ -46,6 +50,7 @@ def get_trades():
         # Get query parameters
         symbol = request.args.get('symbol', None)
         days = request.args.get('days', None)
+        force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
         
         # Calculate the target date range
         end_time = int(time.time() * 1000)  # Current time in milliseconds
@@ -54,54 +59,119 @@ def get_trades():
             days = int(days)
             start_time = int((datetime.now() - timedelta(days=days)).timestamp() * 1000)
         
-        # Collect all trades within the specified time range
-        all_trades = []
-        
-        # Start from the end_time and work backwards in 7-day chunks
-        current_end = end_time
-        current_start = max(current_end - (7 * 24 * 60 * 60 * 1000), start_time)  # 7 days in milliseconds or start_time
-        
-        # We'll make up to 20 requests to cover longer time periods
-        max_requests = 20
-        request_count = 0
-        
-        while current_start >= start_time and request_count < max_requests:
-            # Fetch trades for this 7-day window
-            batch_trades = fetch_trades(symbol, current_start, current_end)
+        # If force refresh is requested, fetch everything from API
+        if force_refresh:
+            all_trades = fetch_all_trades_for_period(symbol, start_time, end_time, force_refresh=True)
             
-            # Add to our collection
-            all_trades.extend(batch_trades)
-            
-            # Log progress
-            print(f"Fetched {len(batch_trades)} trades from {datetime.fromtimestamp(current_start/1000)} to {datetime.fromtimestamp(current_end/1000)}")
-            
-            # Move to the next 7-day window
-            current_end = current_start - 1
-            current_start = max(current_end - (7 * 24 * 60 * 60 * 1000), start_time)
-            
-            # If we've reached the start_time, we're done
-            if current_end <= start_time:
-                break
-                
-            request_count += 1
-            
-            # Add a small delay between requests
-            time.sleep(0.5)
+            return jsonify({
+                'success': True, 
+                'trades': all_trades,
+                'from_cache': False,
+                'cached_at': datetime.utcnow().isoformat()
+            })
         
-        # Process all trades (calculate ROI, format timestamps, etc.)
-        for trade in all_trades:
-            process_trade(trade)
+        # Otherwise, try to use cached data when possible
+        all_trades = fetch_all_trades_for_period(symbol, start_time, end_time)
         
-        # Sort all trades by timestamp (newest first for display)
-        all_trades.sort(key=lambda x: int(x.get('updatedTime', 0)), reverse=True)
+        # Get the most recent fetch time
+        cached_at = cache_manager.get_most_recent_fetch_time(symbol, start_time, end_time)
         
-        return jsonify({'success': True, 'trades': all_trades})
+        # Determine if data came from cache (at least partially)
+        from_cache = cached_at is not None
+        
+        return jsonify({
+            'success': True, 
+            'trades': all_trades,
+            'from_cache': from_cache,
+            'cached_at': cached_at.isoformat() if cached_at else datetime.utcnow().isoformat()
+        })
     
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-def fetch_trades(symbol=None, start_time=None, end_time=None):
-    """Helper function to fetch trades with proper signature generation"""
+def fetch_all_trades_for_period(symbol=None, start_time=None, end_time=None, force_refresh=False):
+    """
+    Fetch all trades for a period, using cache when possible and making API calls
+    only for time ranges that aren't cached
+    """
+    all_trades = []
+    
+    if not force_refresh and cache_manager.is_cache_available():
+        # Get cached range for this symbol
+        cached_range = cache_manager.get_cached_range(symbol)
+        
+        if cached_range:
+            # Determine which time ranges we need to fetch from API
+            uncached_ranges = cache_manager.get_uncached_ranges(cached_range, start_time, end_time)
+            
+            # First, get all trades from cache that fall within our target period
+            cached_trades = cache_manager.get_cached_trades(symbol, start_time, end_time)
+            all_trades.extend(cached_trades)
+            
+            # Then fetch any uncached ranges from API
+            for range_start, range_end in uncached_ranges:
+                print(f"Fetching uncached range: {datetime.fromtimestamp(range_start/1000)} to {datetime.fromtimestamp(range_end/1000)}")
+                api_trades = fetch_trades_from_api(symbol, range_start, range_end)
+                all_trades.extend(api_trades)
+        else:
+            # No cached range, fetch everything from API
+            all_trades = fetch_trades_from_api(symbol, start_time, end_time)
+    else:
+        # No cache available or force refresh requested, fetch everything from API
+        all_trades = fetch_trades_from_api(symbol, start_time, end_time)
+    
+    # Process all trades (calculate ROI, format timestamps, etc.)
+    for trade in all_trades:
+        process_trade(trade)
+    
+    # Sort all trades by timestamp (newest first for display)
+    all_trades.sort(key=lambda x: int(x.get('updatedTime', 0)), reverse=True)
+    
+    return all_trades
+
+def fetch_trades_from_api(symbol=None, start_time=None, end_time=None):
+    """Fetch trades from Bybit API, handling pagination and chunking"""
+    all_trades = []
+    
+    # Start from the end_time and work backwards in 7-day chunks
+    current_end = end_time
+    current_start = max(current_end - (7 * 24 * 60 * 60 * 1000), start_time)  # 7 days in milliseconds or start_time
+    
+    # We'll make up to 20 requests to cover longer time periods
+    max_requests = 20
+    request_count = 0
+    
+    while current_start >= start_time and request_count < max_requests:
+        # Fetch trades for this 7-day window
+        batch_trades = make_api_request(symbol, current_start, current_end)
+        
+        # Add to our collection
+        all_trades.extend(batch_trades)
+        
+        # Log progress
+        print(f"Fetched {len(batch_trades)} trades from API for {symbol or 'all symbols'} from {datetime.fromtimestamp(current_start/1000)} to {datetime.fromtimestamp(current_end/1000)}")
+        
+        # Move to the next 7-day window
+        current_end = current_start - 1
+        current_start = max(current_end - (7 * 24 * 60 * 60 * 1000), start_time)
+        
+        # If we've reached the start_time, we're done
+        if current_end <= start_time:
+            break
+            
+        request_count += 1
+        
+        # Add a small delay between requests
+        time.sleep(0.5)
+    
+    # Update cache ranges after fetching new data
+    if all_trades and cache_manager.is_cache_available():
+        cache_manager.update_cache_ranges(symbol, start_time, end_time)
+    
+    return all_trades
+
+def make_api_request(symbol=None, start_time=None, end_time=None):
+    """Make a single API request to Bybit"""
     # Generate fresh timestamp for API request
     timestamp = str(int(time.time() * 1000))
     recv_window = "5000"
@@ -142,7 +212,11 @@ def fetch_trades(symbol=None, start_time=None, end_time=None):
     data = response.json()
     
     if data['retCode'] == 0 and 'list' in data['result']:
-        return data['result']['list']
+        trades = data['result']['list']
+        # Cache the trades in the database
+        if cache_manager.is_cache_available():
+            cache_manager.cache_trades(trades, process_trade)
+        return trades
     else:
         error_msg = f"API Error: {data.get('retMsg', 'Unknown error')} (Code: {data.get('retCode', 'Unknown')})"
         print(error_msg)  # Log the error

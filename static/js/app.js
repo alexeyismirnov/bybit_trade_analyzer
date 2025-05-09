@@ -24,7 +24,10 @@ new Vue({
         // Pagination
         currentPage: 1,
         pageSize: 10,
-        pageSizeOptions: [10, 25, 50, 100]
+        pageSizeOptions: [10, 25, 50, 100],
+        // Cache indicator
+        usingCachedData: false,
+        lastUpdated: null
     },
     computed: {
         // Filter trades by symbol
@@ -113,15 +116,22 @@ new Vue({
                 lossRate: total > 0 ? (losses / total * 100).toFixed(2) : 0,
                 drawRate: total > 0 ? (draws / total * 100).toFixed(2) : 0
             };
-        }
-    },
+        },
+        // Format the last updated timestamp
+        formattedLastUpdated() {
+            if (!this.lastUpdated) return '';
+            
+            const date = new Date(this.lastUpdated);
+            return date.toLocaleString();
+            }
+        },
     mounted() {
         this.fetchTrades();
-    },
+        },
     beforeDestroy() {
         // Clean up charts when component is destroyed
         ChartManager.destroyAllCharts();
-    },
+        },
     watch: {
         selectedSymbol() {
             this.currentPage = 1;  // Reset to first page when changing symbol
@@ -130,8 +140,8 @@ new Vue({
         },
         pageSize() {
             this.currentPage = 1;  // Reset to first page when changing page size
-        }
-    },
+            }
+        },
     methods: {
         setTimePeriod(days) {
             if (this.selectedTimePeriod !== days) {
@@ -143,6 +153,7 @@ new Vue({
         fetchTrades() {
             this.loading = true;
             this.error = null;
+            this.usingCachedData = false;
             
             // Build the URL with query parameters
             let url = '/api/trades?days=' + this.selectedTimePeriod;
@@ -150,10 +161,60 @@ new Vue({
                 url += `&symbol=${this.selectedSymbol}`;
             }
             
+            // Add cache parameter to track if data comes from cache
+            url += '&cache_check=true';
+            
+            const startTime = performance.now();
+            
             axios.get(url)
                 .then(response => {
                     if (response.data.success) {
                         this.trades = response.data.trades;
+                        
+                        // Check if data was from cache
+                        this.usingCachedData = response.data.from_cache === true;
+                        this.lastUpdated = response.data.cached_at || new Date().toISOString();
+                        
+                        // Extract unique symbols
+                        this.uniqueSymbols = [...new Set(this.trades.map(trade => trade.symbol))];
+                        
+                        this.calculateSummary();
+                        this.updateCharts();
+                        
+                        // Log performance
+                        const endTime = performance.now();
+                        console.log(`Data fetched in ${(endTime - startTime).toFixed(2)}ms (${this.usingCachedData ? 'from cache' : 'from API'})`);
+                    } else {
+                        this.error = response.data.error || 'Failed to fetch trades';
+        }
+                })
+                .catch(error => {
+                    this.error = error.message || 'An error occurred while fetching trades';
+                })
+                .finally(() => {
+                    this.loading = false;
+});
+        },
+        refreshData() {
+            // Force refresh from API by adding a timestamp to avoid cache
+            this.loading = true;
+            this.error = null;
+            
+            // Build the URL with query parameters
+            let url = '/api/trades?days=' + this.selectedTimePeriod;
+            if (this.selectedSymbol) {
+                url += `&symbol=${this.selectedSymbol}`;
+            }
+            
+            // Add force_refresh parameter
+            url += `&force_refresh=true&_t=${new Date().getTime()}`;
+            
+            axios.get(url)
+                .then(response => {
+                    if (response.data.success) {
+                        this.trades = response.data.trades;
+                        this.usingCachedData = false;
+                        this.lastUpdated = new Date().toISOString();
                         
                         // Extract unique symbols
                         this.uniqueSymbols = [...new Set(this.trades.map(trade => trade.symbol))];

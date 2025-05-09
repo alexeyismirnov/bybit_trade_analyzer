@@ -117,6 +117,9 @@ const ChartManager = {
                 }
             },
             plugins: {
+                legend: {
+                    display: false  // Hide the legend
+                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -176,7 +179,7 @@ const ChartManager = {
                     }
                 },
                 title: {
-                    display: true,
+                    display: false,
                     text: 'Trade Performance',
                     font: {
                         size: 16
