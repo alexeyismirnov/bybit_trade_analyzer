@@ -4,6 +4,7 @@ new Vue({
     el: '#app',
     data: {
         trades: [],
+        openTrades: [], // Added for open trades
         loading: false,
         error: null,
         totalPnl: 0,
@@ -21,7 +22,7 @@ new Vue({
             { label: '180D', value: '180' },
             { label: '1Y', value: '365' }
         ],
-        // Pagination
+        // Pagination for completed trades
         currentPage: 1,
         pageSize: 10,
         pageSizeOptions: [10, 25, 50, 100],
@@ -30,29 +31,29 @@ new Vue({
         lastUpdated: null
     },
     computed: {
-        // Filter trades by symbol
+        // Filter completed trades by symbol
         symbolFilteredTrades() {
             if (!this.selectedSymbol) {
                 return [...this.trades];
             }
             return this.trades.filter(trade => trade.symbol === this.selectedSymbol);
         },
-        // Sort by timestamp (newest first for table)
+        // Sort completed trades by timestamp (newest first for table)
         sortedTrades() {
-            return [...this.symbolFilteredTrades].sort((a, b) => 
+            return [...this.symbolFilteredTrades].sort((a, b) =>
                 parseInt(b.created_at) - parseInt(a.created_at)
             );
         },
-        // Get current page of trades
+        // Get current page of completed trades
         paginatedTrades() {
             const startIndex = (this.currentPage - 1) * this.pageSize;
             return this.sortedTrades.slice(startIndex, startIndex + this.pageSize);
         },
-        // Calculate total number of pages
+        // Calculate total number of pages for completed trades
         totalPages() {
             return Math.ceil(this.sortedTrades.length / this.pageSize);
         },
-        // Generate page numbers array for pagination controls
+        // Generate page numbers array for completed trades pagination controls
         pageNumbers() {
             const pages = [];
             const maxVisiblePages = 5;
@@ -91,7 +92,7 @@ new Vue({
             
             return pages;
         },
-        // Calculate trade distribution data
+        // Calculate trade distribution data for completed trades
         tradeDistribution() {
             const trades = this.symbolFilteredTrades;
             let wins = 0, losses = 0, draws = 0;
@@ -123,25 +124,46 @@ new Vue({
             
             const date = new Date(this.lastUpdated);
             return date.toLocaleString();
-            }
         },
+        // Filter open trades by symbol
+        symbolFilteredOpenTrades() {
+            if (!this.selectedSymbol) {
+                return [...this.openTrades];
+            }
+            return this.openTrades.filter(trade => trade.symbol === this.selectedSymbol);
+        },
+        // Sort open trades by updatedTime (newest first for table)
+        sortedOpenTrades() {
+            return [...this.symbolFilteredOpenTrades].sort((a, b) =>
+                parseInt(b.updatedTime) - parseInt(a.updatedTime)
+            );
+        },
+        // Calculate total unrealized PnL for open trades
+        totalUnrealisedPnl() {
+            return this.symbolFilteredOpenTrades.reduce((sum, trade) => {
+                return sum + parseFloat(trade.unrealisedPnl || 0);
+            }, 0);
+        }
+    },
     mounted() {
         this.fetchTrades();
-        },
+        this.fetchOpenTrades(); // Fetch open trades on mount
+    },
     beforeDestroy() {
         // Clean up charts when component is destroyed
         ChartManager.destroyAllCharts();
-        },
+    },
     watch: {
         selectedSymbol() {
             this.currentPage = 1;  // Reset to first page when changing symbol
             this.calculateSummary();
             this.updateCharts();
+            this.fetchOpenTrades(); // Fetch open trades when symbol changes
         },
         pageSize() {
             this.currentPage = 1;  // Reset to first page when changing page size
-            }
-        },
+        }
+    },
     methods: {
         setTimePeriod(days) {
             if (this.selectedTimePeriod !== days) {
@@ -175,80 +197,143 @@ new Vue({
                         this.usingCachedData = response.data.from_cache === true;
                         this.lastUpdated = response.data.cached_at || new Date().toISOString();
                         
-                        // Extract unique symbols
-                        this.uniqueSymbols = [...new Set(this.trades.map(trade => trade.symbol))];
+                        // Extract unique symbols from both completed and open trades
+                        const completedSymbols = this.trades.map(trade => trade.symbol);
+                        const openSymbols = this.openTrades.map(trade => trade.symbol);
+                        this.uniqueSymbols = [...new Set([...completedSymbols, ...openSymbols])];
                         
                         this.calculateSummary();
                         this.updateCharts();
                         
                         // Log performance
                         const endTime = performance.now();
-                        console.log(`Data fetched in ${(endTime - startTime).toFixed(2)}ms (${this.usingCachedData ? 'from cache' : 'from API'})`);
+                        console.log(`Completed trades data fetched in ${(endTime - startTime).toFixed(2)}ms (${this.usingCachedData ? 'from cache' : 'from API'})`);
                     } else {
-                        this.error = response.data.error || 'Failed to fetch trades';
-        }
-                })
-                .catch(error => {
-                    this.error = error.message || 'An error occurred while fetching trades';
-                })
-                .finally(() => {
-                    this.loading = false;
-});
-        },
-        refreshData() {
-            // Force refresh from API by adding a timestamp to avoid cache
-            this.loading = true;
-            this.error = null;
-            
-            // Build the URL with query parameters
-            let url = '/api/trades?days=' + this.selectedTimePeriod;
-            if (this.selectedSymbol) {
-                url += `&symbol=${this.selectedSymbol}`;
-            }
-            
-            // Add force_refresh parameter
-            url += `&force_refresh=true&_t=${new Date().getTime()}`;
-            
-            axios.get(url)
-                .then(response => {
-                    if (response.data.success) {
-                        this.trades = response.data.trades;
-                        this.usingCachedData = false;
-                        this.lastUpdated = new Date().toISOString();
-                        
-                        // Extract unique symbols
-                        this.uniqueSymbols = [...new Set(this.trades.map(trade => trade.symbol))];
-                        
-                        this.calculateSummary();
-                        this.updateCharts();
-                    } else {
-                        this.error = response.data.error || 'Failed to fetch trades';
+                        this.error = response.data.error || 'Failed to fetch completed trades';
                     }
                 })
                 .catch(error => {
-                    this.error = error.message || 'An error occurred while fetching trades';
+                    this.error = error.message || 'An error occurred while fetching completed trades';
                 })
                 .finally(() => {
                     this.loading = false;
                 });
         },
+        fetchOpenTrades() {
+            this.loading = true;
+            this.error = null;
+            
+            let url = '/api/open-trades';
+            if (this.selectedSymbol) {
+                url += `?symbol=${this.selectedSymbol}`;
+            }
+            
+            const startTime = performance.now();
+            
+            axios.get(url)
+                .then(response => {
+                    if (response.data.success) {
+                        this.openTrades = response.data.open_trades;
+                        
+                        // Update unique symbols with open trades
+                        const completedSymbols = this.trades.map(trade => trade.symbol);
+                        const openSymbols = this.openTrades.map(trade => trade.symbol);
+                        this.uniqueSymbols = [...new Set([...completedSymbols, ...openSymbols])];
+                        
+                        // Log performance
+                        const endTime = performance.now();
+                        console.log(`Open trades data fetched in ${(endTime - startTime).toFixed(2)}ms`);
+                    } else {
+                        this.error = response.data.error || 'Failed to fetch open trades';
+                    }
+                })
+                .catch(error => {
+                    this.error = error.message || 'An error occurred while fetching open trades';
+                })
+                .finally(() => {
+                    this.loading = false;
+                });
+        },
+        refreshData() {
+            // Force refresh completed trades from API
+            this.loading = true;
+            this.error = null;
+            
+            let completedTradesUrl = '/api/trades?days=' + this.selectedTimePeriod;
+            if (this.selectedSymbol) {
+                completedTradesUrl += `&symbol=${this.selectedSymbol}`;
+            }
+            completedTradesUrl += `&force_refresh=true&_t=${new Date().getTime()}`;
+            
+            // Fetch open trades (always fresh)
+            let openTradesUrl = '/api/open-trades';
+            if (this.selectedSymbol) {
+                openTradesUrl += `?symbol=${this.selectedSymbol}`;
+            }
+            
+            const startTime = performance.now();
+            
+            axios.all([
+                axios.get(completedTradesUrl),
+                axios.get(openTradesUrl)
+            ])
+            .then(axios.spread((completedTradesResponse, openTradesResponse) => {
+                if (completedTradesResponse.data.success) {
+                    this.trades = completedTradesResponse.data.trades;
+                    this.usingCachedData = false;
+                    this.lastUpdated = new Date().toISOString();
+                    
+                    // Extract unique symbols from completed trades
+                    const completedSymbols = this.trades.map(trade => trade.symbol);
+                    this.uniqueSymbols = [...new Set([...completedSymbols])]; // Will update with open trades later
+                    
+                    this.calculateSummary();
+                    this.updateCharts();
+                    
+                    const endTime = performance.now();
+                    console.log(`Completed trades data refreshed in ${(endTime - startTime).toFixed(2)}ms`);
+                } else {
+                    this.error = completedTradesResponse.data.error || 'Failed to refresh completed trades';
+                }
+                
+                if (openTradesResponse.data.success) {
+                    this.openTrades = openTradesResponse.data.open_trades;
+                    
+                    // Update unique symbols with open trades
+                    const completedSymbols = this.trades.map(trade => trade.symbol);
+                    const openSymbols = this.openTrades.map(trade => trade.symbol);
+                    this.uniqueSymbols = [...new Set([...completedSymbols, ...openSymbols])];
+                    
+                    const endTime = performance.now();
+                    console.log(`Open trades data refreshed in ${(endTime - startTime).toFixed(2)}ms`);
+                } else {
+                    this.error = openTradesResponse.data.error || 'Failed to refresh open trades';
+                }
+            }))
+            .catch(error => {
+                this.error = error.message || 'An error occurred while refreshing data';
+            })
+            .finally(() => {
+                this.loading = false;
+            });
+        },
         calculateSummary() {
             const trades = this.sortedTrades;
             const distribution = this.tradeDistribution;
             
-            // Calculate total PnL
+            // Calculate total PnL for completed trades
             this.totalPnl = trades.reduce((sum, trade) => {
                 return sum + parseFloat(trade.closed_pnl || 0);
             }, 0);
             
-            // Calculate average ROI
+            // Calculate average ROI for completed trades
             const totalRoi = trades.reduce((sum, trade) => {
                 return sum + (trade.roi || 0);
             }, 0);
             
             this.averageRoi = trades.length > 0 ? totalRoi / trades.length : 0;
             
-            // Set rates from distribution
+            // Set rates from distribution for completed trades
             this.winRate = distribution.winRate;
             this.drawRate = distribution.drawRate;
             this.lossRate = distribution.lossRate;
@@ -257,10 +342,10 @@ new Vue({
             // Get time unit based on selected period
             const timeUnit = ChartManager.getTimeUnit(this.selectedTimePeriod);
             
-            // Create/update the PnL chart
+            // Create/update the PnL chart using completed trades
             ChartManager.createPnlChart('pnlChart', this.symbolFilteredTrades, timeUnit);
             
-            // Create/update the distribution chart
+            // Create/update the distribution chart using completed trades
             ChartManager.createDistributionChart('distributionChart', this.tradeDistribution);
         },
         changePage(page) {
@@ -304,6 +389,17 @@ new Vue({
             
             // Apply appropriate class based on value
             return numValue >= 1 ? 'positive' : (numValue <= -1 ? 'negative' : '');
+        },
+        // Formatting for open trades
+        formatUnrealisedPnl(pnl) {
+            if (!pnl) return '-';
+            return parseFloat(pnl).toFixed(4);
+        },
+        getUnrealisedPnlClass(pnl) {
+            if (pnl === undefined || pnl === null) return '';
+            const numPnl = parseFloat(pnl);
+            if (isNaN(numPnl)) return '';
+            return numPnl >= 0 ? 'positive' : 'negative';
         }
     }
 });

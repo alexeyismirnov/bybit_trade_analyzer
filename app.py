@@ -44,7 +44,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/api/trades')
-def get_trades():
+def get_completed_trades():
     """Fetch completed USDT Perpetual trades from Bybit Unified Account"""
     try:
         # Get query parameters
@@ -61,7 +61,7 @@ def get_trades():
         
         # If force refresh is requested, fetch everything from API
         if force_refresh:
-            all_trades = fetch_all_trades_for_period(symbol, start_time, end_time, force_refresh=True)
+            all_trades = fetch_all_completed_trades_for_period(symbol, start_time, end_time, force_refresh=True)
             
             return jsonify({
                 'success': True, 
@@ -71,7 +71,7 @@ def get_trades():
             })
         
         # Otherwise, try to use cached data when possible
-        all_trades = fetch_all_trades_for_period(symbol, start_time, end_time)
+        all_trades = fetch_all_completed_trades_for_period(symbol, start_time, end_time)
         
         # Get the most recent fetch time
         cached_at = cache_manager.get_most_recent_fetch_time(symbol, start_time, end_time)
@@ -89,9 +89,9 @@ def get_trades():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-def fetch_all_trades_for_period(symbol=None, start_time=None, end_time=None, force_refresh=False):
+def fetch_all_completed_trades_for_period(symbol=None, start_time=None, end_time=None, force_refresh=False):
     """
-    Fetch all trades for a period, using cache when possible and making API calls
+    Fetch all completed trades for a period, using cache when possible and making API calls
     only for time ranges that aren't cached
     """
     all_trades = []
@@ -111,14 +111,14 @@ def fetch_all_trades_for_period(symbol=None, start_time=None, end_time=None, for
             # Then fetch any uncached ranges from API
             for range_start, range_end in uncached_ranges:
                 print(f"Fetching uncached range: {datetime.fromtimestamp(range_start/1000)} to {datetime.fromtimestamp(range_end/1000)}")
-                api_trades = fetch_trades_from_api(symbol, range_start, range_end)
+                api_trades = fetch_completed_trades_from_api(symbol, range_start, range_end)
                 all_trades.extend(api_trades)
         else:
             # No cached range, fetch everything from API
-            all_trades = fetch_trades_from_api(symbol, start_time, end_time)
+            all_trades = fetch_completed_trades_from_api(symbol, start_time, end_time)
     else:
         # No cache available or force refresh requested, fetch everything from API
-        all_trades = fetch_trades_from_api(symbol, start_time, end_time)
+        all_trades = fetch_completed_trades_from_api(symbol, start_time, end_time)
     
     # Process all trades (calculate ROI, format timestamps, etc.)
     for trade in all_trades:
@@ -129,8 +129,86 @@ def fetch_all_trades_for_period(symbol=None, start_time=None, end_time=None, for
     
     return all_trades
 
-def fetch_trades_from_api(symbol=None, start_time=None, end_time=None):
-    """Fetch trades from Bybit API, handling pagination and chunking"""
+def fetch_open_trades_from_api(symbol=None):
+    """Fetch open positions from Bybit API"""
+    # Generate fresh timestamp for API request
+    timestamp = str(int(time.time() * 1000))
+    recv_window = "5000"
+    
+    # Base parameters
+    params = {
+        'category': 'linear',
+        'settleCoin': 'USDT' # Add settleCoin for USDT Perpetual trades
+    }
+    
+    # Add optional parameters
+    if symbol:
+        params['symbol'] = symbol
+    
+    # Sort parameters alphabetically and create query string
+    sorted_params = sorted(params.items())
+    query_string = '&'.join([f"{key}={value}" for key, value in sorted_params])
+    
+    # Generate signature
+    signature = get_signature(timestamp, recv_window, query_string)
+    
+    # V5 API endpoint for open positions in Unified account
+    url = "https://api.bybit.com/v5/position/list"
+    
+    headers = {
+        'X-BAPI-SIGN': signature,
+        'X-BAPI-API-KEY': API_KEY,
+        'X-BAPI-TIMESTAMP': timestamp,
+        'X-BAPI-RECV-WINDOW': recv_window
+    }
+    
+    # Make the request
+    response = requests.get(f"{url}?{query_string}", headers=headers)
+    data = response.json()
+    
+    # Add print statement to inspect the API response
+    if data['retCode'] == 0 and 'list' in data['result']:
+        open_trades = data['result']['list']
+        
+        # Calculate ROI for each open trade
+        for trade in open_trades:
+            try:
+                unrealised_pnl = float(trade.get('unrealisedPnl', 0))
+                position_value = float(trade.get('positionValue', 0))
+                
+                if position_value != 0:
+                    trade['roi'] = (unrealised_pnl / position_value) * 100
+                else:
+                    trade['roi'] = 0
+            except (ValueError, TypeError):
+                trade['roi'] = 0 # Handle cases where conversion to float fails
+                
+        return open_trades
+    else:
+        error_msg = f"API Error fetching open trades: {data.get('retMsg', 'Unknown error')} (Code: {data.get('retCode', 'Unknown')})"
+        print(error_msg)  # Log the error
+        return []
+
+@app.route('/api/open-trades')
+def get_open_trades():
+    """Fetch open USDT Perpetual trades from Bybit Unified Account"""
+    try:
+        # Get query parameters
+        symbol = request.args.get('symbol', None)
+        
+        open_trades = fetch_open_trades_from_api(symbol)
+        
+        return jsonify({
+            'success': True,
+            'open_trades': open_trades
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+def fetch_completed_trades_from_api(symbol=None, start_time=None, end_time=None):
+    """Fetch completed trades from Bybit API, handling pagination and chunking"""
     all_trades = []
     
     # Start from the end_time and work backwards in 7-day chunks
@@ -169,6 +247,39 @@ def fetch_trades_from_api(symbol=None, start_time=None, end_time=None):
         cache_manager.update_cache_ranges(symbol, start_time, end_time)
     
     return all_trades
+
+
+def process_trade(trade):
+    """Process a single trade - calculate ROI, format timestamps, etc."""
+    # Calculate ROI
+    if 'closedPnl' in trade and 'avgEntryPrice' in trade and 'qty' in trade:
+        pnl = float(trade['closedPnl'])
+        entry_price = float(trade['avgEntryPrice'])
+        qty = float(trade['qty'])
+        
+        # Calculate investment amount
+        investment = entry_price * abs(float(qty))
+        
+        # Calculate ROI
+        if investment != 0:
+            trade['roi'] = (pnl / investment) * 100
+        else:
+            trade['roi'] = 0
+        
+        # Format timestamp
+        if 'updatedTime' in trade:
+            timestamp_ms = int(trade['updatedTime'])
+            trade['formatted_time'] = datetime.fromtimestamp(timestamp_ms/1000).strftime('%Y-%m-%d %H:%M:%S')
+    
+    # Map V5 API field names to match our frontend expectations
+    trade['symbol'] = trade.get('symbol', '')
+    trade['side'] = trade.get('side', '')
+    trade['entry_price'] = trade.get('avgEntryPrice', '')
+    trade['exit_price'] = trade.get('avgExitPrice', '')
+    trade['qty'] = trade.get('qty', '')
+    trade['closed_pnl'] = trade.get('closedPnl', '')
+    trade['created_at'] = str(int(int(trade.get('updatedTime', '0'))/1000))  # Convert to seconds
+
 
 def make_api_request(symbol=None, start_time=None, end_time=None):
     """Make a single API request to Bybit"""
@@ -222,36 +333,6 @@ def make_api_request(symbol=None, start_time=None, end_time=None):
         print(error_msg)  # Log the error
         return []
 
-def process_trade(trade):
-    """Process a single trade - calculate ROI, format timestamps, etc."""
-    # Calculate ROI
-    if 'closedPnl' in trade and 'avgEntryPrice' in trade and 'qty' in trade:
-        pnl = float(trade['closedPnl'])
-        entry_price = float(trade['avgEntryPrice'])
-        qty = float(trade['qty'])
-        
-        # Calculate investment amount
-        investment = entry_price * abs(float(qty))
-        
-        # Calculate ROI
-        if investment != 0:
-            trade['roi'] = (pnl / investment) * 100
-        else:
-            trade['roi'] = 0
-        
-        # Format timestamp
-        if 'updatedTime' in trade:
-            timestamp_ms = int(trade['updatedTime'])
-            trade['formatted_time'] = datetime.fromtimestamp(timestamp_ms/1000).strftime('%Y-%m-%d %H:%M:%S')
-    
-    # Map V5 API field names to match our frontend expectations
-    trade['symbol'] = trade.get('symbol', '')
-    trade['side'] = trade.get('side', '')
-    trade['entry_price'] = trade.get('avgEntryPrice', '')
-    trade['exit_price'] = trade.get('avgExitPrice', '')
-    trade['qty'] = trade.get('qty', '')
-    trade['closed_pnl'] = trade.get('closedPnl', '')
-    trade['created_at'] = str(int(int(trade.get('updatedTime', '0'))/1000))  # Convert to seconds
 
 # Use PORT environment variable for Railway
 if __name__ == '__main__':

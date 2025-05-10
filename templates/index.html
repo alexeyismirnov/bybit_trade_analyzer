@@ -222,6 +222,48 @@
                 </div>
             </div>
         </div>
+
+        <!-- Open Trades Table -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Open Trades</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="header-row">
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Side</th>
+                                <th>Contracts</th>
+                                <th>Notional</th>
+                                <th>Current ROI (%)</th>
+                                <th>Unrealized PnL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="trade in sortedOpenTrades" :key="trade.symbol">
+                                <td>{{ trade.symbol }}</td>
+                                <td>{{ trade.side }}</td>
+                                <td>{{ trade.size }}</td>
+                                <td>{{ formatPrice(trade.positionValue) }}</td>
+                                <td :class="getPnlClass(trade.roi)">{{ formatRoi(trade.roi) }}</td>
+                                <td :class="getUnrealisedPnlClass(trade.unrealisedPnl)">{{ formatUnrealisedPnl(trade.unrealisedPnl) }}</td>
+                            </tr>
+                            <tr v-if="sortedOpenTrades.length === 0">
+                                <td colspan="5" class="text-center">No open trades found</td>
+                            </tr>
+                        </tbody>
+                        <tfoot v-if="sortedOpenTrades.length > 0">
+                            <tr>
+                                <td colspan="5" class="text-end"><strong>Total Unrealized PnL:</strong></td>
+                                <td :class="getUnrealisedPnlClass(totalUnrealisedPnl)">{{ formatUnrealisedPnl(totalUnrealisedPnl) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
     {% endraw %}
 
