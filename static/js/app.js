@@ -165,6 +165,38 @@ new Vue({
         }
     },
     methods: {
+        // New method to format symbol with direction arrow for completed trades
+        formatSymbolWithDirection(trade) {
+            // If side is 'Sell', it means we closed a LONG position (green, arrow up)
+            // Otherwise, it was a SHORT position (red, arrow down)
+            if (trade.side === 'Sell') {
+                return '<i class="bi bi-caret-up-fill"></i> ' + trade.symbol;
+            } else {
+                return '<i class="bi bi-caret-down-fill"></i> ' + trade.symbol;
+            }
+        },
+        
+        // New method to get the class for symbol direction for completed trades
+        getSymbolDirectionClass(trade) {
+            return trade.side === 'Sell' ? 'positive' : 'negative';
+        },
+        
+        // New method to format open trade symbol with direction arrow
+        formatOpenTradeSymbol(trade) {
+            // For open trades, "Buy" means LONG position (green, arrow up)
+            // "Sell" means SHORT position (red, arrow down)
+            if (trade.side === 'Buy') {
+                return '<i class="bi bi-caret-up-fill"></i> ' + trade.symbol;
+            } else {
+                return '<i class="bi bi-caret-down-fill"></i> ' + trade.symbol;
+            }
+        },
+        
+        // New method to get the class for open trade symbol direction
+        getOpenTradeDirectionClass(trade) {
+            return trade.side === 'Buy' ? 'positive' : 'negative';
+        },
+        
         setTimePeriod(days) {
             if (this.selectedTimePeriod !== days) {
                 this.selectedTimePeriod = days;

@@ -138,7 +138,7 @@
                         <thead class="header-row">
                             <tr>
                                 <th>Symbol</th>
-                                <th>Side</th>
+                                <!-- Side column removed -->
                                 <th>Quantity</th>
                                 <th>PnL</th>
                                 <th>ROI (%)</th>
@@ -147,15 +147,17 @@
                         </thead>
                         <tbody>
                             <tr v-for="trade in paginatedTrades" :key="trade.id">
-                                <td>{{ trade.symbol }}</td>
-                                <td>{{ trade.side }}</td>
+                                <!-- Updated Symbol column with direction indicator -->
+                                <td :class="getSymbolDirectionClass(trade)">
+                                    <span v-html="formatSymbolWithDirection(trade)"></span>
+                                </td>
                                 <td>{{ trade.qty }}</td>
                                 <td :class="getPnlClass(trade.closed_pnl)">{{ formatPnl(trade.closed_pnl) }}</td>
                                 <td :class="getPnlClass(trade.roi)">{{ formatRoi(trade.roi) }}</td>
                                 <td>{{ trade.formatted_time }}</td>
                             </tr>
                             <tr v-if="paginatedTrades.length === 0">
-                                <td colspan="6" class="text-center">No trades found</td>
+                                <td colspan="5" class="text-center">No trades found</td>
                             </tr>
                         </tbody>
                     </table>
@@ -235,7 +237,7 @@
                         <thead class="header-row">
                             <tr>
                                 <th>Symbol</th>
-                                <th>Side</th>
+                                <!-- Side column removed -->
                                 <th>Contracts</th>
                                 <th>Notional</th>
                                 <th>Current ROI (%)</th>
@@ -245,8 +247,10 @@
                         </thead>
                         <tbody>
                             <tr v-for="trade in sortedOpenTrades" :key="trade.symbol">
-                                <td>{{ trade.symbol }}</td>
-                                <td>{{ trade.side }}</td>
+                                <!-- Updated Symbol column with direction indicator -->
+                                <td :class="getOpenTradeDirectionClass(trade)">
+                                    <span v-html="formatOpenTradeSymbol(trade)"></span>
+                                </td>
                                 <td>{{ trade.size }}</td>
                                 <td>{{ formatPrice(trade.positionValue) }}</td>
                                 <td :class="getPnlClass(trade.roi)">{{ formatRoi(trade.roi) }}</td>
@@ -254,12 +258,12 @@
                                 <td :class="getUnrealisedPnlClass(trade.unrealisedPnl)">{{ formatUnrealisedPnl(trade.unrealisedPnl) }}</td>
                             </tr>
                             <tr v-if="sortedOpenTrades.length === 0">
-                                <td colspan="7" class="text-center">No open trades found</td>
+                                <td colspan="6" class="text-center">No open trades found</td>
                             </tr>
                         </tbody>
                         <tfoot v-if="sortedOpenTrades.length > 0">
                             <tr>
-                                <td colspan="6" class="text-end"><strong>Total Unrealized PnL:</strong></td>
+                                <td colspan="5" class="text-end"><strong>Total Unrealized PnL:</strong></td>
                                 <td :class="getUnrealisedPnlClass(totalUnrealisedPnl)">{{ formatUnrealisedPnl(totalUnrealisedPnl) }}</td>
                             </tr>
                         </tfoot>
