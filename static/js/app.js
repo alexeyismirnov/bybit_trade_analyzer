@@ -254,69 +254,6 @@ new Vue({
                     this.loading = false;
                 });
         },
-        refreshData() {
-            // Force refresh completed trades from API
-            this.loading = true;
-            this.error = null;
-            
-            let completedTradesUrl = '/api/trades?days=' + this.selectedTimePeriod;
-            if (this.selectedSymbol) {
-                completedTradesUrl += `&symbol=${this.selectedSymbol}`;
-            }
-            completedTradesUrl += `&force_refresh=true&_t=${new Date().getTime()}`;
-            
-            // Fetch open trades (always fresh)
-            let openTradesUrl = '/api/open-trades';
-            if (this.selectedSymbol) {
-                openTradesUrl += `?symbol=${this.selectedSymbol}`;
-            }
-            
-            const startTime = performance.now();
-            
-            axios.all([
-                axios.get(completedTradesUrl),
-                axios.get(openTradesUrl)
-            ])
-            .then(axios.spread((completedTradesResponse, openTradesResponse) => {
-                if (completedTradesResponse.data.success) {
-                    this.trades = completedTradesResponse.data.trades;
-                    this.usingCachedData = false;
-                    this.lastUpdated = new Date().toISOString();
-                    
-                    // Extract unique symbols from completed trades
-                    const completedSymbols = this.trades.map(trade => trade.symbol);
-                    this.uniqueSymbols = [...new Set([...completedSymbols])]; // Will update with open trades later
-                    
-                    this.calculateSummary();
-                    this.updateCharts();
-                    
-                    const endTime = performance.now();
-                    console.log(`Completed trades data refreshed in ${(endTime - startTime).toFixed(2)}ms`);
-                } else {
-                    this.error = completedTradesResponse.data.error || 'Failed to refresh completed trades';
-                }
-                
-                if (openTradesResponse.data.success) {
-                    this.openTrades = openTradesResponse.data.open_trades;
-                    
-                    // Update unique symbols with open trades
-                    const completedSymbols = this.trades.map(trade => trade.symbol);
-                    const openSymbols = this.openTrades.map(trade => trade.symbol);
-                    this.uniqueSymbols = [...new Set([...completedSymbols, ...openSymbols])];
-                    
-                    const endTime = performance.now();
-                    console.log(`Open trades data refreshed in ${(endTime - startTime).toFixed(2)}ms`);
-                } else {
-                    this.error = openTradesResponse.data.error || 'Failed to refresh open trades';
-                }
-            }))
-            .catch(error => {
-                this.error = error.message || 'An error occurred while refreshing data';
-            })
-            .finally(() => {
-                this.loading = false;
-            });
-        },
         calculateSummary() {
             const trades = this.sortedTrades;
             const distribution = this.tradeDistribution;
