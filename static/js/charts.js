@@ -41,7 +41,7 @@ const ChartManager = {
         });
     },
     
-    // Show "No data" message on a chart canvas
+    // Update the showNoDataMessage function in ChartManager
     showNoDataMessage(chartId, message = 'No trade data available') {
         const ctx = document.getElementById(chartId);
         if (!ctx) {
@@ -49,12 +49,33 @@ const ChartManager = {
             return;
         }
         
+        // Destroy existing chart if it exists
+        this.destroyChart(chartId);
+        
+        // Get the 2D context
         const ctx2d = ctx.getContext('2d');
+        
+        // Clear the entire canvas
         ctx2d.clearRect(0, 0, ctx.width, ctx.height);
-        ctx2d.font = '16px Arial';
+        
+        // Set text styling
+        ctx2d.font = '14px Arial';
         ctx2d.fillStyle = '#666';
         ctx2d.textAlign = 'center';
-        ctx2d.fillText(message, ctx.width / 2, ctx.height / 2);
+        ctx2d.textBaseline = 'middle';
+        
+        // Get actual canvas dimensions
+        const displayWidth = ctx.clientWidth || ctx.width || 300;
+        const displayHeight = ctx.clientHeight || ctx.height || 200;
+        
+        // Set canvas dimensions if they're not already set
+        if (ctx.width !== displayWidth || ctx.height !== displayHeight) {
+            ctx.width = displayWidth;
+            ctx.height = displayHeight;
+        }
+        
+        // Draw the text in the center of the canvas
+        ctx2d.fillText(message, displayWidth / 2, displayHeight / 2);
     },
     
     // Create PnL chart
