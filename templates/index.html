@@ -172,16 +172,18 @@
     }
 
     .dark-mode .header-row th {
-        background-color: #1a1a1a !important; /* Dark gray background for header row in dark mode */
+        background-color: rgba(26, 26, 26, 0.9) !important; /* Semi-transparent dark gray background for header row in dark mode */
         color: #0f0; /* Brighter green for header text */
         text-shadow: 0 0 3px rgba(0, 255, 0, 0.6);
     }
 
-    .dark-mode .positive {
+    .dark-mode .positive,
+    .dark-mode .table td.positive {
         color: #0f0 !important; /* Brighter green for positive in dark mode */
     }
 
-    .dark-mode .negative {
+    .dark-mode .negative,
+    .dark-mode .table td.negative {
         color: #f00 !important; /* Red for negative in dark mode */
     }
 
@@ -362,7 +364,7 @@
                                 </td>
                                 <td>${ trade.qty }</td>
                                 <td :class="getPnlClass(trade.closed_pnl)">${ formatPnl(trade.closed_pnl) }</td>
-                                <td :class="getPnlClass(trade.roi)">${ formatRoi(trade.roi) }</td>
+                                <td :class="getRoiClass(trade.roi)">${ formatRoi(trade.roi) }</td>
                                 <td>${ formatTimestamp(trade.updatedTime) }</td>
                             </tr>
                             <tr v-if="paginatedTrades.length === 0">
@@ -462,7 +464,7 @@
                                 </td>
                                 <td>${ trade.size }</td>
                                 <td>${ formatPrice(trade.positionValue) }</td>
-                                <td :class="getPnlClass(trade.roi)">${ formatRoi(trade.roi) }</td>
+                                <td :class="getRoiClass(trade.roi)">${ formatRoi(trade.roi) }</td>
                                 <td :class="getPnlClass(trade.curRealisedPnl)">${ formatPnl(trade.curRealisedPnl) }</td>
                                 <td :class="getUnrealisedPnlClass(trade.unrealisedPnl)">${ formatUnrealisedPnl(trade.unrealisedPnl) }</td>
                             </tr>

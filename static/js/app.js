@@ -435,18 +435,29 @@ new Vue({
         getPnlClass(value) {
             // Explicitly handle all cases to ensure proper coloring
             if (value === undefined || value === null) return '';
-            
+
             // Convert to number to ensure proper comparison
             const numValue = parseFloat(value);
-            
+
             // Handle NaN case
             if (isNaN(numValue)) return '';
-            
-            // For ROI, consider less than 1% (absolute) as a draw
-            if (Math.abs(numValue) < 1) return '';
-            
-            // Apply appropriate class based on value
-            return numValue >= 1 ? 'positive' : (numValue <= -1 ? 'negative' : '');
+
+            // Apply appropriate class based on value (for PnL)
+            return numValue >= 0 ? 'positive' : 'negative';
+        },
+        // New method to get the class for ROI values
+        getRoiClass(value) {
+            // Explicitly handle all cases to ensure proper coloring
+            if (value === undefined || value === null) return '';
+
+            // Convert to number to ensure proper comparison
+            const numValue = parseFloat(value);
+
+            // Handle NaN case
+            if (isNaN(numValue)) return '';
+
+            // Apply appropriate class based on value (for ROI)
+            return numValue >= 0 ? 'positive' : 'negative';
         },
         // Formatting for open trades
         formatUnrealisedPnl(pnl) {
