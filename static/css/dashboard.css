@@ -1,0 +1,252 @@
+body {
+    background-image: url('../images/bybit_trades_bg2.png');
+    background-size: cover;
+    background-attachment: fixed;
+    margin-top: 20px; /* Add space above the navbar */
+}
+.navbar {
+    background-color: rgba(248, 249, 250, 0.9) !important; /* Set navbar transparency */
+}
+.card {
+    background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
+}
+/* Make positive/negative colors stronger to override Bootstrap striping */
+.positive {
+    color: green !important; /* Use !important to override Bootstrap styles */
+    font-weight: bold;
+}
+.negative {
+    color: red !important; /* Use !important to override Bootstrap styles */
+    font-weight: bold;
+}
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+.header-row {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+    margin-bottom: 20px;
+}
+.btn-group .btn-outline-secondary.active {
+    background-color: #6c757d;
+    color: white;
+}
+.pagination-info {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+.page-link.active {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+.page-link.disabled {
+    color: #6c757d;
+    pointer-events: none;
+}
+/* New styles for the REDFLOW STRATEGY title */
+.matrix-title {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 1.8rem;
+    letter-spacing: 2px;
+    color: #0a0;
+    text-shadow: 0 0 5px rgba(0, 170, 0, 0.7);
+    margin: 0 auto;
+    text-align: center;
+    text-transform: uppercase;
+    text-decoration: none; /* Remove underline */
+    display: block; /* Ensure it's a block element */
+}
+/* Center the navbar content */
+.navbar .container-fluid {
+    justify-content: center;
+    position: relative;
+}
+/* Position the settings button on the right */
+.navbar-settings {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+/* Matrix style for card headers and table headers */
+.matrix-header {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 600;
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+    color: #0a0;
+    text-shadow: 0 0 3px rgba(0, 170, 0, 0.6);
+    text-transform: uppercase;
+    margin-bottom: 0;
+}
+
+/* Matrix style for table column headers */
+.header-row th {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+    color: #0a0;
+    text-shadow: 0 0 2px rgba(0, 170, 0, 0.5);
+    text-transform: uppercase;
+    background-color: rgba(0, 20, 0, 0.05) !important;
+}
+
+/* Matrix style for chart titles */
+.chart-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    color: #0a0;
+    text-shadow: 0 0 2px rgba(0, 170, 0, 0.5);
+    text-transform: uppercase;
+}
+/* Dark Mode Styles */
+body.dark-mode {
+    background-image: url('../images/bybit_trades_bg2.png');
+    background-size: cover;
+    background-attachment: fixed;
+    color: #eee; /* Lighter text color for body in dark mode */
+}
+
+.dark-mode .navbar {
+    background-color: rgba(26, 26, 26, 0.9) !important; /* Semi-transparent dark gray background for navbar in dark mode */
+    border: 1px solid white;
+}
+
+.dark-mode .card {
+    background-color: rgba(26, 26, 26, 0.9); /* Semi-transparent dark gray background for cards in dark mode */
+    color: #eee; /* Lighter text color for cards in dark mode */
+}
+
+.dark-mode .card {
+    border: 1px solid white;
+}
+
+.dark-mode .card-header {
+    border-bottom: 1px solid rgba(0, 170, 0, 0.3); /* Subtle green border */
+}
+
+.dark-mode .table {
+    color: #eee; /* Lighter text color for table content in dark mode */
+}
+
+.dark-mode .table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 170, 0, 0.05); /* Subtle stripe */
+}
+
+.dark-mode .table-striped tbody tr:nth-of-type(odd) td {
+    color: #eee; /* Ensure text in odd rows is visible */
+}
+
+.dark-mode .header-row th {
+    background-color: rgba(26, 26, 26, 0.9) !important; /* Semi-transparent dark gray background for header row in dark mode */
+    color: #0f0; /* Brighter green for header text */
+    text-shadow: 0 0 3px rgba(0, 255, 0, 0.6);
+}
+
+.dark-mode .positive,
+.dark-mode .table td.positive {
+    color: #0f0 !important; /* Brighter green for positive in dark mode */
+}
+
+.dark-mode .negative,
+.dark-mode .table td.negative {
+    color: #f00 !important; /* Red for negative in dark mode */
+}
+
+.dark-mode .loading-overlay {
+    background: rgba(0, 0, 0, 0.8); /* Darker overlay */
+}
+
+.dark-mode .loading-overlay .spinner-border {
+    color: #0f0 !important; /* Green spinner */
+}
+
+.dark-mode .btn-group .btn-outline-secondary {
+    color: #0a0;
+    border-color: #0a0;
+}
+
+.dark-mode .navbar-settings .btn-outline-secondary {
+    color: white; /* White font color for settings and logout buttons in dark mode */
+    border-color: #0a0;
+}
+
+.dark-mode .btn-group .btn-outline-secondary.active {
+    background-color: #0a0;
+    color: black;
+}
+
+.dark-mode .pagination-info {
+    color: #0a0;
+}
+
+.dark-mode .page-link {
+    background-color: rgba(0, 50, 0, 0.9);
+    color: #0a0;
+    border-color: #0a0;
+}
+
+.dark-mode .page-link:hover {
+    background-color: rgba(0, 100, 0, 0.9);
+    color: #0f0;
+    border-color: #0f0;
+}
+
+.dark-mode .page-link.active {
+    background-color: #0a0;
+    border-color: #0a0;
+    color: black;
+}
+
+.dark-mode .page-link.disabled {
+    color: rgba(0, 170, 0, 0.5);
+    border-color: rgba(0, 170, 0, 0.5);
+}
+
+.dark-mode .modal-content {
+    background-color: rgba(0, 50, 0, 0.9);
+    color: #0a0;
+}
+
+.dark-mode .modal-header {
+    border-bottom: 1px solid rgba(0, 170, 0, 0.3);
+}
+
+.dark-mode .modal-footer {
+    border-top: 1px solid rgba(0, 170, 0, 0.3);
+}
+
+.dark-mode .form-label {
+    color: #0a0;
+}
+
+.dark-mode .form-select {
+    background-color: rgba(0, 30, 0, 0.9);
+    color: #0a0;
+    border-color: #0a0;
+}
+
+.dark-mode .form-select option {
+     background-color: rgba(0, 50, 0, 1);
+     color: #0a0;
+}
+
+.dark-mode .btn-close {
+    filter: invert(1); /* Make close button visible on dark background */
+}

@@ -16,7 +16,7 @@ new Vue({
     delimiters: ['${', '}'], // Change Vue's delimiters to avoid conflict with Jinja2
     data: {
         trades: [],
-        openTrades: [], // Added for open trades
+        openTrades: [],
         loading: false,
         error: null,
         totalPnl: 0,
@@ -27,8 +27,8 @@ new Vue({
         selectedSymbol: '',
         selectedTimePeriod: '30',  // Default to 30 days
         uniqueSymbols: [],
-        theme: 'light', // Added for theme selection
-        hideSmallTrades: true, // Added for hiding small trades
+        theme: 'light',
+        hideSmallTrades: true,
         timePeriods: [
             { label: '7D', value: '7' },
             { label: '30D', value: '30' },
@@ -44,24 +44,9 @@ new Vue({
         usingCachedData: false,
         lastUpdated: null,
         
-        // Settings Modal
-        isSettingsModalVisible: false, // Control modal visibility with v-if
+        // Settings Modal - simplified, component will handle most of this
+        isSettingsModalVisible: false,
         selectedTimezone: 'UTC', // Default timezone
-        timezones: [
-            { label: 'UTC', value: 'UTC' },
-            { label: 'GMT', value: 'GMT' },
-            { label: 'America/New_York', value: 'America/New_York' },
-            { label: 'America/Chicago', value: 'America/Chicago' },
-            { label: 'America/Denver', value: 'America/Denver' },
-            { label: 'America/Los_Angeles', value: 'America/Los_Angeles' },
-            { label: 'Europe/London', value: 'Europe/London' },
-            { label: 'Europe/Berlin', value: 'Europe/Berlin' },
-            { label: 'Asia/Tokyo', value: 'Asia/Tokyo' },
-            { label: 'Asia/Shanghai', value: 'Asia/Shanghai' },
-            { label: 'Asia/Hong_Kong', value: 'Asia/Hong_Kong' },
-            { label: 'Australia/Sydney', value: 'Australia/Sydney' }
-            // Add more timezones as needed
-        ]
     },
     computed: {
         // Filter completed trades by symbol
@@ -211,81 +196,61 @@ new Vue({
         }
     },
     mounted() {
-        this.loadSettings(); // Load settings on mount
+        this.loadSettings();
         this.fetchTrades();
-        this.fetchOpenTrades(); // Fetch open trades on mount
+        this.fetchOpenTrades();
     },
     beforeDestroy() {
         // Clean up charts when component is destroyed
         ChartManager.destroyAllCharts();
     },
     watch: {
-    selectedSymbol() {
-        this.currentPage = 1;  // Reset to first page when changing symbol
-        this.updateCharts();
-        this.calculateSummary();
-    },
-    pageSize() {
-        this.currentPage = 1;  // Reset to first page when changing page size
-    },
-    selectedTimezone() {
-        // Re-render the trades table when timezone changes
-        // No need to refetch data, just reformat the displayed time
-        // The computed property `paginatedTrades` will automatically update
-    },
-    // Watch for theme changes and apply the theme
-    theme(newTheme) {
-        this.applyTheme(newTheme);
-        this.updateCharts(); // Redraw charts with new theme colors
-    },
-    
+        selectedSymbol() {
+            this.currentPage = 1;  // Reset to first page when changing symbol
+            this.updateCharts();
+            this.calculateSummary();
+        },
+        pageSize() {
+            this.currentPage = 1;  // Reset to first page when changing page size
+        },
+        selectedTimezone() {
+            // Re-render the trades table when timezone changes
+            // No need to refetch data, just reformat the displayed time
+        },
+        theme(newTheme) {
+            this.applyTheme(newTheme);
+            this.updateCharts(); // Redraw charts with new theme colors
+        }
     },
     methods: {
-        // Settings Modal methods
+        // Settings Modal methods - simplified to work with component
         showSettingsModal() {
-            this.isSettingsModalVisible = true; // Show the modal
-            // Use Bootstrap's modal API
-            // Wait for the modal to be added to the DOM by v-if
-            this.$nextTick(() => {
-                const settingsModal = new bootstrap.Modal(document.getElementById('settingsModal'));
-                settingsModal.show();
-                // Add event listener to reset isSettingsModalVisible when modal is hidden
-                document.getElementById('settingsModal').addEventListener('hidden.bs.modal', this.hideSettingsModal);
-            });
-        },
-        saveSettings() {
-            // Save selected timezone and theme to localStorage
-            localStorage.setItem('selectedTimezone', this.selectedTimezone);
-            localStorage.setItem('theme', this.theme); // Save theme
-            // Close the modal
-            const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
-            settingsModal.hide();
-            // The hideSettingsModal method will be called by the event listener
+            this.isSettingsModalVisible = true;
         },
         hideSettingsModal() {
-            this.isSettingsModalVisible = false; // Hide the modal after Bootstrap animation
-            // Remove the event listener
-            document.getElementById('settingsModal').removeEventListener('hidden.bs.modal', this.hideSettingsModal);
+            this.isSettingsModalVisible = false;
+        },
+        onSettingsSaved(settings) {
+            this.selectedTimezone = settings.timezone;
+            this.theme = settings.theme;
+            this.applyTheme(settings.theme);
+            this.updateCharts(); // Redraw charts with new theme colors
         },
         loadSettings() {
-            // Load selected timezone and theme from localStorage
             const savedTimezone = localStorage.getItem('selectedTimezone');
             if (savedTimezone) {
                 this.selectedTimezone = savedTimezone;
             }
-            const savedTheme = localStorage.getItem('theme'); // Load theme
+            const savedTheme = localStorage.getItem('theme');
             if (savedTheme) {
                 this.theme = savedTheme;
             } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                // If no theme is saved, check system preference
                 this.theme = 'dark';
             } else {
-                // Default to light mode if no preference is set or system preference is light
                 this.theme = 'light';
             }
-            // Apply the theme on load
             this.applyTheme(this.theme);
-            this.loadHideSmallTradesPreference(); // Load hide small trades preference
+            this.loadHideSmallTradesPreference();
         },
         saveHideSmallTradesPreference() {
             localStorage.setItem('hideSmallTrades', this.hideSmallTrades);
@@ -293,10 +258,9 @@ new Vue({
         loadHideSmallTradesPreference() {
             const savedPreference = localStorage.getItem('hideSmallTrades');
             if (savedPreference !== null) {
-                this.hideSmallTrades = JSON.parse(savedPreference); // localStorage stores booleans as strings
+                this.hideSmallTrades = JSON.parse(savedPreference);
             }
         },
-        // Method to apply the selected theme
         applyTheme(theme) {
             const body = document.body;
             if (theme === 'dark') {
@@ -305,50 +269,34 @@ new Vue({
                 body.classList.remove('dark-mode');
             }
         },
-
-        // New method to format timestamp based on selected timezone
         formatTimestamp(timestampMs) {
             if (!timestampMs) return '-';
-            // Use Luxon to format the timestamp
             return luxon.DateTime.fromMillis(parseInt(timestampMs)).setZone(this.selectedTimezone).toFormat('yyyy-MM-dd HH:mm:ss');
         },
-
-        // New method to format symbol with direction arrow for completed trades
         formatSymbolWithDirection(trade) {
-            // If side is 'Sell', it means we closed a LONG position (green, arrow up)
-            // Otherwise, it was a SHORT position (red, arrow down)
             if (trade.side === 'Sell') {
                 return '<i class="bi bi-caret-up-fill"></i> ' + trade.symbol;
             } else {
                 return '<i class="bi bi-caret-down-fill"></i> ' + trade.symbol;
             }
         },
-        
-        // New method to get the class for symbol direction for completed trades
         getSymbolDirectionClass(trade) {
             return trade.side === 'Sell' ? 'positive' : 'negative';
         },
-        
-        // New method to format open trade symbol with direction arrow
         formatOpenTradeSymbol(trade) {
-            // For open trades, "Buy" means LONG position (green, arrow up)
-            // "Sell" means SHORT position (red, arrow down)
             if (trade.side === 'Buy') {
                 return '<i class="bi bi-caret-up-fill"></i> ' + trade.symbol;
             } else {
                 return '<i class="bi bi-caret-down-fill"></i> ' + trade.symbol;
             }
         },
-        
-        // New method to get the class for open trade symbol direction
         getOpenTradeDirectionClass(trade) {
             return trade.side === 'Buy' ? 'positive' : 'negative';
         },
-        
         setTimePeriod(days) {
             if (this.selectedTimePeriod !== days) {
                 this.selectedTimePeriod = days;
-                this.currentPage = 1;  // Reset to first page when changing time period
+                this.currentPage = 1;
                 this.fetchTrades();
             }
         },
@@ -357,13 +305,11 @@ new Vue({
             this.error = null;
             this.usingCachedData = false;
             
-            // Build the URL with query parameters
             let url = '/api/trades?days=' + this.selectedTimePeriod;
             if (this.selectedSymbol) {
                 url += `&symbol=${this.selectedSymbol}`;
             }
             
-            // Add cache parameter to track if data comes from cache
             url += '&cache_check=true';
             
             const startTime = performance.now();
@@ -373,19 +319,16 @@ new Vue({
                     if (response.data.success) {
                         this.trades = response.data.trades;
                         
-                        // Check if data was from cache
                         this.usingCachedData = response.data.from_cache === true;
                         this.lastUpdated = response.data.cached_at || new Date().toISOString();
                         
-                        // Extract unique symbols from both completed and open trades
                         const completedSymbols = this.trades.map(trade => trade.symbol);
                         const openSymbols = this.openTrades.map(trade => trade.symbol);
                         this.uniqueSymbols = [...new Set([...completedSymbols, ...openSymbols])];
                         
-                        this.calculateSummary(); // Moved inside .then()
-                        this.updateCharts(); // Moved inside .then()
+                        this.calculateSummary();
+                        this.updateCharts();
                         
-                        // Log performance
                         const endTime = performance.now();
                         console.log(`Completed trades data fetched in ${(endTime - startTime).toFixed(2)}ms (${this.usingCachedData ? 'from cache' : 'from API'})`);
                     } else {
@@ -415,12 +358,10 @@ new Vue({
                     if (response.data.success) {
                         this.openTrades = response.data.open_trades;
                         
-                        // Update unique symbols with open trades
                         const completedSymbols = this.trades.map(trade => trade.symbol);
                         const openSymbols = this.openTrades.map(trade => trade.symbol);
                         this.uniqueSymbols = [...new Set([...completedSymbols, ...openSymbols])];
                         
-                        // Log performance
                         const endTime = performance.now();
                         console.log(`Open trades data fetched in ${(endTime - startTime).toFixed(2)}ms`);
                     } else {
@@ -438,31 +379,23 @@ new Vue({
             const trades = this.sortedTrades;
             const distribution = this.tradeDistribution;
             
-            // Calculate total PnL for completed trades
             this.totalPnl = trades.reduce((sum, trade) => {
                 return sum + parseFloat(trade.closed_pnl || 0);
             }, 0);
             
-            // Calculate average ROI for completed trades
             const totalRoi = trades.reduce((sum, trade) => {
                 return sum + (trade.roi || 0);
             }, 0);
             
             this.averageRoi = trades.length > 0 ? totalRoi / trades.length : 0;
             
-            // Set rates from distribution for completed trades
             this.winRate = distribution.winRate;
             this.drawRate = distribution.drawRate;
             this.lossRate = distribution.lossRate;
         },
         updateCharts() {
-            // Get time unit based on selected period
             const timeUnit = ChartManager.getTimeUnit(this.selectedTimePeriod);
-            
-            // Create/update the PnL chart using completed trades, passing the current theme
             ChartManager.createPnlChart('pnlChart', this.symbolFilteredTrades, timeUnit, this.theme);
-            
-            // Create/update the distribution chart using top performing coins, passing the current theme
             ChartManager.createDistributionChart('distributionChart', this.topPerformingCoins, this.theme);
         },
         changePage(page) {
@@ -492,33 +425,17 @@ new Vue({
             return parseFloat(roi).toFixed(2) + '%';
         },
         getPnlClass(value) {
-            // Explicitly handle all cases to ensure proper coloring
             if (value === undefined || value === null) return '';
-
-            // Convert to number to ensure proper comparison
             const numValue = parseFloat(value);
-
-            // Handle NaN case
             if (isNaN(numValue)) return '';
-
-            // Apply appropriate class based on value (for PnL)
             return numValue >= 0 ? 'positive' : 'negative';
         },
-        // New method to get the class for ROI values
         getRoiClass(value) {
-            // Explicitly handle all cases to ensure proper coloring
             if (value === undefined || value === null) return '';
-
-            // Convert to number to ensure proper comparison
             const numValue = parseFloat(value);
-
-            // Handle NaN case
             if (isNaN(numValue)) return '';
-
-            // Apply appropriate class based on value (for ROI)
             return numValue >= 0 ? 'positive' : 'negative';
         },
-        // Formatting for open trades
         formatUnrealisedPnl(pnl) {
             if (!pnl) return '-';
             return parseFloat(pnl).toFixed(4);

@@ -1,0 +1,102 @@
+body {
+    background-image: url('../images/bybit_login.png');
+    background-size: cover;
+    background-attachment: fixed;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+}
+.login-container {
+    background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 400px;
+}
+.matrix-title {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 1.8rem;
+    letter-spacing: 2px;
+    color: #0a0;
+    text-shadow: 0 0 5px rgba(0, 170, 0, 0.7);
+    text-align: center;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+}
+.form-label {
+    font-family: 'Orbitron', sans-serif;
+    color: #0a0;
+    text-shadow: 0 0 2px rgba(0, 170, 0, 0.5);
+}
+.btn-primary {
+    background-color: #0a0;
+    border-color: #0a0;
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 1px;
+}
+.btn-primary:hover {
+    background-color: #0f0;
+    border-color: #0f0;
+}
+.alert-danger {
+    font-size: 0.9rem;
+    padding: 10px;
+}
+/* Dark Mode Styles */
+body.dark-mode {
+    background-image: url('../images/bybit_login.png');
+    background-size: cover;
+    background-attachment: fixed;
+    color: #eee; /* Lighter text color for body in dark mode */
+}
+
+.dark-mode .login-container {
+    background-color: rgba(26, 26, 26, 0.9); /* Semi-transparent dark gray background */
+    color: #eee; /* Lighter text color */
+    border: 1px solid white;
+}
+
+.dark-mode .matrix-title {
+    color: #0f0; /* Brighter green for title in dark mode */
+    text-shadow: 0 0 8px rgba(0, 255, 0, 0.8);
+}
+
+.dark-mode .form-label {
+    color: #0f0; /* Brighter green for labels in dark mode */
+    text-shadow: 0 0 3px rgba(0, 255, 0, 0.6);
+}
+
+.dark-mode .form-control {
+    background-color: rgba(0, 30, 0, 0.9);
+    color: #0a0;
+    border-color: #0a0;
+}
+
+.dark-mode .form-control:focus {
+    background-color: rgba(0, 50, 0, 0.9);
+    color: #0f0;
+    border-color: #0f0;
+    box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+.dark-mode .btn-primary {
+    background-color: #0f0;
+    border-color: #0f0;
+    color: black;
+}
+
+.dark-mode .btn-primary:hover {
+    background-color: #0a0;
+    border-color: #0a0;
+    color: white;
+}
+
+.dark-mode .alert-danger {
+    background-color: rgba(255, 0, 0, 0.2);
+    color: #f00;
+    border-color: #f00;
+}
