@@ -205,6 +205,11 @@
         border-color: #0a0;
     }
 
+    .dark-mode .navbar-settings .btn-outline-secondary {
+        color: white; /* White font color for settings and logout buttons in dark mode */
+        border-color: #0a0;
+    }
+
     .dark-mode .btn-group .btn-outline-secondary.active {
         background-color: #0a0;
         color: black;
@@ -280,9 +285,12 @@
                 
                 <!-- Settings button positioned absolutely -->
                 <div class="navbar-settings">
-                    <button class="btn btn-outline-secondary" @click="showSettingsModal">
+                    <button class="btn btn-outline-secondary me-2" @click="showSettingsModal">
                         <i class="bi bi-gear"></i> Settings
                     </button>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </a>
                 </div>
             </div>
         </nav>

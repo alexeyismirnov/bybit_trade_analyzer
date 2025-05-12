@@ -1,5 +1,16 @@
 // static/js/app.js
 
+// Add an Axios interceptor to handle unauthorized responses
+axios.interceptors.response.use(response => {
+    return response;
+}, error => {
+    if (error.response && error.response.status === 401) {
+        // Redirect to login page if unauthorized
+        window.location.href = '/';
+    }
+    return Promise.reject(error);
+});
+
 new Vue({
     el: '#app',
     delimiters: ['${', '}'], // Change Vue's delimiters to avoid conflict with Jinja2
@@ -265,6 +276,12 @@ new Vue({
             const savedTheme = localStorage.getItem('theme'); // Load theme
             if (savedTheme) {
                 this.theme = savedTheme;
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                // If no theme is saved, check system preference
+                this.theme = 'dark';
+            } else {
+                // Default to light mode if no preference is set or system preference is light
+                this.theme = 'light';
             }
             // Apply the theme on load
             this.applyTheme(this.theme);

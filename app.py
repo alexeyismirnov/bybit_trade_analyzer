@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 import os
 import requests
 import time
@@ -12,10 +12,15 @@ from cache_manager import CacheManager
 load_dotenv()
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_very_secret_key_fallback') # Replace with a strong secret key
 
 # Bybit API credentials (loaded from environment variables)
 API_KEY = os.environ.get('BYBIT_API_KEY', '')
 API_SECRET = os.environ.get('BYBIT_API_SECRET', '')
+
+# Authentication credentials (loaded from environment variables)
+AUTH_USERNAME = os.environ.get('AUTH_USERNAME')
+AUTH_PASSWORD = os.environ.get('AUTH_PASSWORD')
 
 # Initialize cache manager
 DB_URL = os.environ.get('DATABASE_URL', '')
@@ -38,10 +43,47 @@ def get_signature(timestamp, recv_window, query_string):
     
     return signature
 
+from functools import wraps
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/')
-def index():
-    """Render the main page"""
-    return render_template('index.html')
+def login():
+    """Render the login page"""
+    if 'logged_in' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('login.html')
+
+@app.route('/login', methods=['POST'])
+def do_login():
+    """Handle login form submission"""
+    username = request.form.get('username')
+    password = request.form.get('password')
+
+    if username == AUTH_USERNAME and password == AUTH_PASSWORD:
+        session['logged_in'] = True
+        return redirect(url_for('dashboard'))
+    else:
+        return render_template('login.html', error='Invalid credentials')
+
+@app.route('/logout')
+def logout():
+    """Handle logout"""
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    """Render the dashboard page"""
+    return render_template('dashboard.html')
+
 
 @app.route('/api/trades')
 def get_completed_trades():
