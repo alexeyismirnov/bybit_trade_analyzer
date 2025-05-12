@@ -2,6 +2,7 @@
 
 new Vue({
     el: '#app',
+    delimiters: ['${', '}'], // Change Vue's delimiters to avoid conflict with Jinja2
     data: {
         trades: [],
         openTrades: [], // Added for open trades
@@ -28,7 +29,26 @@ new Vue({
         pageSizeOptions: [10, 25, 50, 100],
         // Cache indicator
         usingCachedData: false,
-        lastUpdated: null
+        lastUpdated: null,
+        
+        // Settings Modal
+        isSettingsModalVisible: false, // Control modal visibility with v-if
+        selectedTimezone: 'UTC', // Default timezone
+        timezones: [
+            { label: 'UTC', value: 'UTC' },
+            { label: 'GMT', value: 'GMT' },
+            { label: 'America/New_York', value: 'America/New_York' },
+            { label: 'America/Chicago', value: 'America/Chicago' },
+            { label: 'America/Denver', value: 'America/Denver' },
+            { label: 'America/Los_Angeles', value: 'America/Los_Angeles' },
+            { label: 'Europe/London', value: 'Europe/London' },
+            { label: 'Europe/Berlin', value: 'Europe/Berlin' },
+            { label: 'Asia/Tokyo', value: 'Asia/Tokyo' },
+            { label: 'Asia/Shanghai', value: 'Asia/Shanghai' },
+            { label: 'Asia/Hong_Kong', value: 'Asia/Hong_Kong' },
+            { label: 'Australia/Sydney', value: 'Australia/Sydney' }
+            // Add more timezones as needed
+        ]
     },
     computed: {
         // Filter completed trades by symbol
@@ -146,6 +166,7 @@ new Vue({
         }
     },
     mounted() {
+        this.loadSettings(); // Load settings on mount
         this.fetchTrades();
         this.fetchOpenTrades(); // Fetch open trades on mount
     },
@@ -162,9 +183,54 @@ new Vue({
         },
         pageSize() {
             this.currentPage = 1;  // Reset to first page when changing page size
+        },
+        selectedTimezone() {
+            // Re-render the trades table when timezone changes
+            // No need to refetch data, just reformat the displayed time
+            // The computed property `paginatedTrades` will automatically update
         }
     },
     methods: {
+        // Settings Modal methods
+        showSettingsModal() {
+            this.isSettingsModalVisible = true; // Show the modal
+            // Use Bootstrap's modal API
+            // Wait for the modal to be added to the DOM by v-if
+            this.$nextTick(() => {
+                const settingsModal = new bootstrap.Modal(document.getElementById('settingsModal'));
+                settingsModal.show();
+                // Add event listener to reset isSettingsModalVisible when modal is hidden
+                document.getElementById('settingsModal').addEventListener('hidden.bs.modal', this.hideSettingsModal);
+            });
+        },
+        saveSettings() {
+            // Save selected timezone to localStorage
+            localStorage.setItem('selectedTimezone', this.selectedTimezone);
+            // Close the modal
+            const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+            settingsModal.hide();
+            // The hideSettingsModal method will be called by the event listener
+        },
+        hideSettingsModal() {
+            this.isSettingsModalVisible = false; // Hide the modal after Bootstrap animation
+            // Remove the event listener
+            document.getElementById('settingsModal').removeEventListener('hidden.bs.modal', this.hideSettingsModal);
+        },
+        loadSettings() {
+            // Load selected timezone from localStorage
+            const savedTimezone = localStorage.getItem('selectedTimezone');
+            if (savedTimezone) {
+                this.selectedTimezone = savedTimezone;
+            }
+        },
+
+        // New method to format timestamp based on selected timezone
+        formatTimestamp(timestampMs) {
+            if (!timestampMs) return '-';
+            // Use Luxon to format the timestamp
+            return luxon.DateTime.fromMillis(parseInt(timestampMs)).setZone(this.selectedTimezone).toFormat('yyyy-MM-dd HH:mm:ss');
+        },
+
         // New method to format symbol with direction arrow for completed trades
         formatSymbolWithDirection(trade) {
             // If side is 'Sell', it means we closed a LONG position (green, arrow up)

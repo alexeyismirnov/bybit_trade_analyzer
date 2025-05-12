@@ -269,7 +269,6 @@ def process_trade(trade):
         # Format timestamp
         if 'updatedTime' in trade:
             timestamp_ms = int(trade['updatedTime'])
-            trade['formatted_time'] = datetime.fromtimestamp(timestamp_ms/1000).strftime('%Y-%m-%d %H:%M:%S')
     
     # Map V5 API field names to match our frontend expectations
     trade['symbol'] = trade.get('symbol', '')
