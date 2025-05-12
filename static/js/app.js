@@ -17,6 +17,7 @@ new Vue({
         selectedTimePeriod: '30',  // Default to 30 days
         uniqueSymbols: [],
         theme: 'light', // Added for theme selection
+        hideSmallTrades: true, // Added for hiding small trades
         timePeriods: [
             { label: '7D', value: '7' },
             { label: '30D', value: '30' },
@@ -59,9 +60,19 @@ new Vue({
             }
             return this.trades.filter(trade => trade.symbol === this.selectedSymbol);
         },
+        // Filter completed trades by PnL if hideSmallTrades is true
+        filteredTradesByPnL() {
+            if (this.hideSmallTrades) {
+                return this.symbolFilteredTrades.filter(trade => {
+                    const pnl = parseFloat(trade.closed_pnl || 0);
+                    return pnl >= 0.1 || pnl <= -0.1; // Keep trades with PnL >= 0.1 or PnL <= -0.1
+                });
+            }
+            return this.symbolFilteredTrades;
+        },
         // Sort completed trades by timestamp (newest first for table)
         sortedTrades() {
-            return [...this.symbolFilteredTrades].sort((a, b) =>
+            return [...this.filteredTradesByPnL].sort((a, b) =>
                 parseInt(b.created_at) - parseInt(a.created_at)
             );
         },
@@ -164,6 +175,28 @@ new Vue({
             return this.symbolFilteredOpenTrades.reduce((sum, trade) => {
                 return sum + parseFloat(trade.unrealisedPnl || 0);
             }, 0);
+        },
+        // Calculate top 5 performing coins by PnL (positive PnL only)
+        topPerformingCoins() {
+            const pnlBySymbol = {};
+            this.symbolFilteredTrades.forEach(trade => {
+                const symbol = trade.symbol;
+                const pnl = parseFloat(trade.closed_pnl || 0);
+                if (pnlBySymbol[symbol]) {
+                    pnlBySymbol[symbol] += pnl;
+                } else {
+                    pnlBySymbol[symbol] = pnl;
+                }
+            });
+
+            // Convert to array, filter for positive PnL, sort, and take top 5
+            const sortedCoins = Object.keys(pnlBySymbol)
+                .map(symbol => ({ symbol, pnl: pnlBySymbol[symbol] }))
+                .filter(coin => coin.pnl > 0)
+                .sort((a, b) => b.pnl - a.pnl)
+                .slice(0, 5);
+
+            return sortedCoins;
         }
     },
     mounted() {
@@ -176,26 +209,25 @@ new Vue({
         ChartManager.destroyAllCharts();
     },
     watch: {
-        selectedSymbol() {
-            this.currentPage = 1;  // Reset to first page when changing symbol
-            this.calculateSummary();
-            this.updateCharts();
-            this.fetchOpenTrades(); // Fetch open trades when symbol changes
-        },
-        pageSize() {
-            this.currentPage = 1;  // Reset to first page when changing page size
-        },
-        selectedTimezone() {
-            // Re-render the trades table when timezone changes
-            // No need to refetch data, just reformat the displayed time
-            // The computed property `paginatedTrades` will automatically update
-        }
+    selectedSymbol() {
+        this.currentPage = 1;  // Reset to first page when changing symbol
+        this.updateCharts();
+        this.calculateSummary();
     },
-    watch: {
-        // Watch for theme changes and apply the theme
-        theme(newTheme) {
-            this.applyTheme(newTheme);
-        }
+    pageSize() {
+        this.currentPage = 1;  // Reset to first page when changing page size
+    },
+    selectedTimezone() {
+        // Re-render the trades table when timezone changes
+        // No need to refetch data, just reformat the displayed time
+        // The computed property `paginatedTrades` will automatically update
+    },
+    // Watch for theme changes and apply the theme
+    theme(newTheme) {
+        this.applyTheme(newTheme);
+        this.updateCharts(); // Redraw charts with new theme colors
+    },
+    
     },
     methods: {
         // Settings Modal methods
@@ -236,6 +268,16 @@ new Vue({
             }
             // Apply the theme on load
             this.applyTheme(this.theme);
+            this.loadHideSmallTradesPreference(); // Load hide small trades preference
+        },
+        saveHideSmallTradesPreference() {
+            localStorage.setItem('hideSmallTrades', this.hideSmallTrades);
+        },
+        loadHideSmallTradesPreference() {
+            const savedPreference = localStorage.getItem('hideSmallTrades');
+            if (savedPreference !== null) {
+                this.hideSmallTrades = JSON.parse(savedPreference); // localStorage stores booleans as strings
+            }
         },
         // Method to apply the selected theme
         applyTheme(theme) {
@@ -323,8 +365,8 @@ new Vue({
                         const openSymbols = this.openTrades.map(trade => trade.symbol);
                         this.uniqueSymbols = [...new Set([...completedSymbols, ...openSymbols])];
                         
-                        this.calculateSummary();
-                        this.updateCharts();
+                        this.calculateSummary(); // Moved inside .then()
+                        this.updateCharts(); // Moved inside .then()
                         
                         // Log performance
                         const endTime = performance.now();
@@ -403,8 +445,8 @@ new Vue({
             // Create/update the PnL chart using completed trades, passing the current theme
             ChartManager.createPnlChart('pnlChart', this.symbolFilteredTrades, timeUnit, this.theme);
             
-            // Create/update the distribution chart using completed trades, passing the current theme
-            ChartManager.createDistributionChart('distributionChart', this.tradeDistribution, this.theme);
+            // Create/update the distribution chart using top performing coins, passing the current theme
+            ChartManager.createDistributionChart('distributionChart', this.topPerformingCoins, this.theme);
         },
         changePage(page) {
             if (page === '...' || page < 1 || page > this.totalPages) return;

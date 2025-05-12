@@ -65,11 +65,11 @@ const ChartManager = {
         );
 
         const isDarkMode = theme === 'dark';
-        const textColor = isDarkMode ? '#0f0' : '#666'; // Brighter green for dark mode text
+        const textColor = isDarkMode ? '#fff' : '#000'; // White for dark mode text, Black for light mode text
         const gridColor = isDarkMode ? 'rgba(0, 170, 0, 0.3)' : '#e0e0e0'; // Subtle green grid for dark mode
         const borderColor = isDarkMode ? 'rgb(0, 255, 0)' : 'rgb(75, 192, 192)'; // Brighter green line for dark mode
-        const aboveColor = isDarkMode ? 'rgba(0, 255, 0, 0.2)' : 'rgba(75, 192, 192, 0.2)'; // Brighter green fill above for dark mode
-        const belowColor = isDarkMode ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 99, 132, 0.2)'; // Red fill below for dark mode
+        const aboveColor = isDarkMode ? 'rgba(0, 255, 0, 0.5)' : 'rgba(144, 238, 144, 0.5)'; // Light green fill above for light mode (salad color), more opaque
+        const belowColor = isDarkMode ? 'rgba(255, 0, 0, 0.5)' : 'rgba(255, 99, 132, 0.5)'; // Red fill below for dark mode
         
         // Calculate cumulative PnL
         let cumulativePnl = 0;
@@ -154,33 +154,44 @@ const ChartManager = {
         return this.createOrUpdateChart(chartId, 'line', data, options);
     },
     
-    // Create distribution pie chart
-    createDistributionChart(chartId, distribution, theme) {
-        // Only create chart if we have data
-        if (distribution.wins + distribution.losses + distribution.draws === 0) {
-            this.showNoDataMessage(chartId);
+    // Create pie chart for top performing coins
+    createDistributionChart(chartId, topCoins, theme) {
+        // Calculate total PnL for top coins
+        const totalPnL = topCoins.reduce((sum, coin) => sum + coin.pnl, 0);
+
+        // Only create chart if we have data and total PnL is positive
+        if (topCoins.length === 0 || totalPnL <= 0) {
+            this.showNoDataMessage(chartId, 'No coins with positive PnL in this period');
             return null;
         }
         
+        // Extract labels (symbols without USDT) and data (PnL values)
+        const labels = topCoins.map(coin => coin.symbol.replace(/USDT$/, '')); // Remove USDT postfix
+        const dataValues = topCoins.map(coin => coin.pnl);
+
         // Chart configuration
         const data = {
-            labels: ['Wins', 'Losses', 'Draws'],
+            labels: labels,
             datasets: [{
-                data: [distribution.wins, distribution.losses, distribution.draws],
+                data: dataValues,
                 backgroundColor: [
-                    'rgba(75, 192, 75, 0.7)',  // Green for wins
-                    'rgba(255, 99, 132, 0.7)', // Red for losses
-                    'rgba(150, 150, 150, 0.7)' // Grey for draws
+                    'rgba(75, 192, 75, 0.7)',  // Green
+                    'rgba(54, 162, 235, 0.7)', // Blue
+                    'rgba(255, 206, 86, 0.7)', // Yellow
+                    'rgba(153, 102, 255, 0.7)', // Purple
+                    'rgba(255, 159, 64, 0.7)'  // Orange
                 ],
                 borderColor: [
                     'rgba(75, 192, 75, 1)',
-                    'rgba(255, 99, 132, 1)',
-                    'rgba(150, 150, 150, 1)'
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(153, 102, 255, 1)',
+                    'rgba(255, 159, 64, 1)'
                 ],
                 borderWidth: 1
             }]
         };
-        
+
         const options = {
             responsive: true,
             maintainAspectRatio: false,
@@ -188,7 +199,7 @@ const ChartManager = {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        color: theme === 'dark' ? '#0f0' : '#666' // Set legend text color
+                        color: theme === 'dark' ? '#fff' : '#000' // Set legend text color (White for dark, Black for light)
                     }
                 },
                 tooltip: {
@@ -196,22 +207,21 @@ const ChartManager = {
                         label: function(context) {
                             const label = context.label || '';
                             const value = context.raw || 0;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = Math.round((value / total) * 100);
-                            return `${label}: ${value} (${percentage}%)`;
+                            const percentage = ((value / totalPnL) * 100).toFixed(2); // Calculate percentage based on totalPnL
+                            return `${label}: ${value.toFixed(4)} (${percentage}%)`; // Display PnL with 4 decimal places
                         }
                     }
                 },
                 title: {
-                    display: false,
-                    text: 'Trade Performance',
+                    display: false, // Hide the Chart.js built-in title
+                    text: 'Top performers', // New title text
                     font: {
                         size: 16
                     }
                 }
             }
         };
-        
+
         return this.createOrUpdateChart(chartId, 'pie', data, options);
     },
     
