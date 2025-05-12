@@ -92,109 +92,14 @@
                 </div>
             </div>
         
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 matrix-header">Completed Trades</h5>
-                <div class="d-flex align-items-center">
-                    <!-- Hide small trades switch -->
-                    <div class="form-check form-switch me-3">
-                        <input class="form-check-input" type="checkbox" id="hideSmallTradesSwitch" v-model="hideSmallTrades">
-                        <label class="form-check-label" for="hideSmallTradesSwitch">Hide small trades</label>
-                    </div>
-                    <select v-model="selectedSymbol" class="form-select form-select-sm d-inline-block" style="width: auto;">
-                        <option value="">All Pairs</option>
-                        <option v-for="symbol in uniqueSymbols" :key="symbol" :value="symbol">${ symbol }</option>
-                    </select>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead class="header-row">
-                            <tr>
-                                <th>Symbol</th>
-                                <!-- Side column removed -->
-                                <th>Quantity</th>
-                                <th>PnL</th>
-                                <th>ROI (%)</th>
-                                <th>Date/Time</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="trade in paginatedTrades" :key="trade.id">
-                                <!-- Updated Symbol column with direction indicator -->
-                                <td :class="getSymbolDirectionClass(trade)">
-                                    <span v-html="formatSymbolWithDirection(trade)"></span>
-                                </td>
-                                <td>${ trade.qty }</td>
-                                <td :class="getPnlClass(trade.closed_pnl)">${ formatPnl(trade.closed_pnl) }</td>
-                                <td :class="getRoiClass(trade.roi)">${ formatRoi(trade.roi) }</td>
-                                <td>${ formatTimestamp(trade.updatedTime) }</td>
-                            </tr>
-                            <tr v-if="paginatedTrades.length === 0">
-                                <td colspan="5" class="text-center">No trades found</td>
-                            </tr>
-                        </tbody>
-                    </table>
-        </div>
-                
-                <!-- Pagination Controls -->
-                <div class="d-flex justify-content-between align-items-center mt-3" v-if="sortedTrades.length > 0">
-                    <div class="pagination-info">
-                        Showing ${ (currentPage - 1) * pageSize + 1 } to ${ Math.min(currentPage * pageSize, sortedTrades.length) } of ${ sortedTrades.length } trades
-                    </div>
-                    
-                    <div class="d-flex align-items-center">
-                        <select v-model="pageSize" class="form-select form-select-sm me-3" style="width: auto;">
-                            <option v-for="size in pageSizeOptions" :key="size" :value="size">${ size } per page</option>
-                        </select>
-                        
-                        <nav aria-label="Trades pagination">
-                            <ul class="pagination pagination-sm mb-0">
-                                <li class="page-item">
-                                    <a class="page-link" href="#" @click.prevent="previousPage" :class="{ disabled: currentPage === 1 }">
-                                        &laquo;
-                                    </a>
-                                </li>
-                                <li class="page-item" v-for="page in pageNumbers" :key="page">
-                                    <a class="page-link" href="#" 
-                                       @click.prevent="changePage(page)"
-                                       :class="{ active: page === currentPage, disabled: page === '...' }">
-                                        ${ page }
-                                    </a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="#" @click.prevent="nextPage" :class="{ disabled: currentPage === totalPages }">
-                                        &raquo;
-                                    </a>
-                                </li>
-                            </ul>
-                        </nav>
-                    </div>
-                </div>
-            </div>
-            <div class="card-footer" v-if="sortedTrades.length > 0">
-                <div class="row">
-                    <div class="col-md-2">
-                        <strong>Total Trades:</strong> ${ sortedTrades.length }
-                    </div>
-                    <div class="col-md-3">
-                        <strong>Total PnL:</strong> 
-                        <span :class="getPnlClass(totalPnl)">${ formatPnl(totalPnl) }</span>
-                    </div>
-                    <div class="col-md-2">
-                        <strong>Avg ROI:</strong> 
-                        <span :class="getPnlClass(averageRoi)">${ formatRoi(averageRoi) }</span>
-                    </div>
-                    <div class="col-md-5">
-                        <strong>Performance:</strong> 
-                        <span class="positive">Win ${ winRate }%</span> | 
-                        <span>Draw ${ drawRate }%</span> | 
-                        <span class="negative">Loss ${ lossRate }%</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Completed Trades Table Component -->
+        <completed-trades-table
+            :trades="trades"
+            :unique-symbols="uniqueSymbols"
+            :selected-timezone="selectedTimezone"
+            :selected-symbol="selectedSymbol"
+            @symbol-changed="handleCompletedTradesSymbolChange">
+        </completed-trades-table>
 
         <!-- Open Trades Table -->
         <div class="card mb-4">
@@ -263,6 +168,7 @@
     <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
     <!-- Include components before the main app -->
     <script src="{{ url_for('static', filename='js/components/SettingsModal.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/CompletedTradesTable.js') }}"></script>
     <!-- Then include the main app -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
