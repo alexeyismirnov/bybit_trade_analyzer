@@ -16,6 +16,7 @@ new Vue({
         selectedSymbol: '',
         selectedTimePeriod: '30',  // Default to 30 days
         uniqueSymbols: [],
+        theme: 'light', // Added for theme selection
         timePeriods: [
             { label: '7D', value: '7' },
             { label: '30D', value: '30' },
@@ -190,6 +191,12 @@ new Vue({
             // The computed property `paginatedTrades` will automatically update
         }
     },
+    watch: {
+        // Watch for theme changes and apply the theme
+        theme(newTheme) {
+            this.applyTheme(newTheme);
+        }
+    },
     methods: {
         // Settings Modal methods
         showSettingsModal() {
@@ -204,8 +211,9 @@ new Vue({
             });
         },
         saveSettings() {
-            // Save selected timezone to localStorage
+            // Save selected timezone and theme to localStorage
             localStorage.setItem('selectedTimezone', this.selectedTimezone);
+            localStorage.setItem('theme', this.theme); // Save theme
             // Close the modal
             const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
             settingsModal.hide();
@@ -217,10 +225,25 @@ new Vue({
             document.getElementById('settingsModal').removeEventListener('hidden.bs.modal', this.hideSettingsModal);
         },
         loadSettings() {
-            // Load selected timezone from localStorage
+            // Load selected timezone and theme from localStorage
             const savedTimezone = localStorage.getItem('selectedTimezone');
             if (savedTimezone) {
                 this.selectedTimezone = savedTimezone;
+            }
+            const savedTheme = localStorage.getItem('theme'); // Load theme
+            if (savedTheme) {
+                this.theme = savedTheme;
+            }
+            // Apply the theme on load
+            this.applyTheme(this.theme);
+        },
+        // Method to apply the selected theme
+        applyTheme(theme) {
+            const body = document.body;
+            if (theme === 'dark') {
+                body.classList.add('dark-mode');
+            } else {
+                body.classList.remove('dark-mode');
             }
         },
 
@@ -377,11 +400,11 @@ new Vue({
             // Get time unit based on selected period
             const timeUnit = ChartManager.getTimeUnit(this.selectedTimePeriod);
             
-            // Create/update the PnL chart using completed trades
-            ChartManager.createPnlChart('pnlChart', this.symbolFilteredTrades, timeUnit);
+            // Create/update the PnL chart using completed trades, passing the current theme
+            ChartManager.createPnlChart('pnlChart', this.symbolFilteredTrades, timeUnit, this.theme);
             
-            // Create/update the distribution chart using completed trades
-            ChartManager.createDistributionChart('distributionChart', this.tradeDistribution);
+            // Create/update the distribution chart using completed trades, passing the current theme
+            ChartManager.createDistributionChart('distributionChart', this.tradeDistribution, this.theme);
         },
         changePage(page) {
             if (page === '...' || page < 1 || page > this.totalPages) return;

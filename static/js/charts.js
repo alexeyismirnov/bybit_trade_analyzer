@@ -58,11 +58,18 @@ const ChartManager = {
     },
     
     // Create PnL chart
-    createPnlChart(chartId, trades, timeUnit) {
+    createPnlChart(chartId, trades, timeUnit, theme) {
         // Sort trades by timestamp (oldest first)
-        const sortedTrades = [...trades].sort((a, b) => 
+        const sortedTrades = [...trades].sort((a, b) =>
             parseInt(a.created_at) - parseInt(b.created_at)
         );
+
+        const isDarkMode = theme === 'dark';
+        const textColor = isDarkMode ? '#0f0' : '#666'; // Brighter green for dark mode text
+        const gridColor = isDarkMode ? 'rgba(0, 170, 0, 0.3)' : '#e0e0e0'; // Subtle green grid for dark mode
+        const borderColor = isDarkMode ? 'rgb(0, 255, 0)' : 'rgb(75, 192, 192)'; // Brighter green line for dark mode
+        const aboveColor = isDarkMode ? 'rgba(0, 255, 0, 0.2)' : 'rgba(75, 192, 192, 0.2)'; // Brighter green fill above for dark mode
+        const belowColor = isDarkMode ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 99, 132, 0.2)'; // Red fill below for dark mode
         
         // Calculate cumulative PnL
         let cumulativePnl = 0;
@@ -85,12 +92,12 @@ const ChartManager = {
             datasets: [{
                 label: 'Cumulative PnL',
                 data: chartData,
-                borderColor: 'rgb(75, 192, 192)',
+                borderColor: borderColor,
                 tension: 0.1,
                 fill: {
                     target: 'origin',
-                    above: 'rgba(75, 192, 192, 0.2)',
-                    below: 'rgba(255, 99, 132, 0.2)'
+                    above: aboveColor,
+                    below: belowColor
                 }
             }]
         };
@@ -106,13 +113,27 @@ const ChartManager = {
                     },
                     title: {
                         display: true,
-                        text: 'Date'
+                        text: 'Date',
+                        color: textColor // Set title color
+                    },
+                    ticks: {
+                        color: textColor // Set tick color
+                    },
+                    grid: {
+                        color: gridColor // Set grid color
                     }
                 },
                 y: {
                     title: {
                         display: true,
-                        text: 'Cumulative PnL'
+                        text: 'Cumulative PnL',
+                        color: textColor // Set title color
+                    },
+                    ticks: {
+                        color: textColor // Set tick color
+                    },
+                    grid: {
+                        color: gridColor // Set grid color
                     }
                 }
             },
@@ -134,7 +155,7 @@ const ChartManager = {
     },
     
     // Create distribution pie chart
-    createDistributionChart(chartId, distribution) {
+    createDistributionChart(chartId, distribution, theme) {
         // Only create chart if we have data
         if (distribution.wins + distribution.losses + distribution.draws === 0) {
             this.showNoDataMessage(chartId);
@@ -165,7 +186,10 @@ const ChartManager = {
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    position: 'bottom'
+                    position: 'bottom',
+                    labels: {
+                        color: theme === 'dark' ? '#0f0' : '#666' // Set legend text color
+                    }
                 },
                 tooltip: {
                     callbacks: {
