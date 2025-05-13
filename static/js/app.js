@@ -108,31 +108,22 @@ new Vue({
         this.fetchTrades();
         this.fetchOpenTrades();
     },
-    beforeDestroy() {
-        ChartManager.destroyAllCharts();
-    },
     watch: {
         selectedTimezone() {
             // The CompletedTradesTable component will react to this prop change
         },
         theme(newTheme) {
             this.applyTheme(newTheme);
-            this.updateCharts(); // Redraw charts with new theme colors
         },
         trades() {
              const completedSymbols = this.trades.map(trade => trade.symbol);
              const openSymbols = this.openTrades.map(trade => trade.symbol);
              this.uniqueSymbols = [...new Set([...completedSymbols, ...openSymbols])];
-             this.updateCharts();
         },
         openTrades() {
              const completedSymbols = this.trades.map(trade => trade.symbol);
              const openSymbols = this.openTrades.map(trade => trade.symbol);
              this.uniqueSymbols = [...new Set([...completedSymbols, ...openSymbols])];
-        },
-        selectedSymbol() {
-            // When selectedSymbol changes at the app level, update the charts and fetch open trades
-            this.updateCharts();
         }
     },
     methods: {
@@ -146,7 +137,6 @@ new Vue({
             this.selectedTimezone = settings.timezone;
             this.theme = settings.theme;
             this.applyTheme(settings.theme);
-            this.updateCharts(); // Redraw charts with new theme colors
         },
         loadSettings() {
             const savedTimezone = localStorage.getItem('selectedTimezone');
@@ -244,13 +234,6 @@ new Vue({
             .finally(() => {
                 this.loading = false;
             });
-        },
-        updateCharts() {
-            const timeUnit = ChartManager.getTimeUnit(this.selectedTimePeriod);
-            
-            // Use the filteredTrades computed property
-            ChartManager.createPnlChart('pnlChart', this.filteredTrades, timeUnit, this.theme);
-            ChartManager.createDistributionChart('distributionChart', this.topPerformingCoins, this.theme);
         },
         formatPrice(price) {
             if (!price) return '-';
