@@ -2,7 +2,7 @@
 Vue.component('completed-trades-table', {
     delimiters: ['${', '}'], // Match the main app's delimiters
     template: `
-        <div class="card mb-4">
+ <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 matrix-header">Completed Trades</h5>
                 <div class="d-flex align-items-center">
@@ -20,7 +20,7 @@ Vue.component('completed-trades-table', {
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped">
                         <thead class="header-row">
                             <tr>
                                 <th>Symbol</th>
