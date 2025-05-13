@@ -76,10 +76,6 @@ body {
     justify-content: center;
     position: relative;
 }
-/* Styles for the settings and logout buttons container */
-.navbar-settings {
-    /* Removed absolute positioning */
-}
 
 /* Styles for the wallet balance display */
 .navbar-balance {
