@@ -243,6 +243,72 @@ def get_open_trades():
         return jsonify({'success': False, 'error': str(e)})
 
 
+@api_bp.route('/wallet-balance')
+@login_required  # Add login_required decorator to protect this endpoint
+def get_wallet_balance():
+    """Fetch wallet balance from Bybit Unified Account"""
+    try:
+        # Generate fresh timestamp for API request
+        timestamp = str(int(time.time() * 1000))
+        recv_window = "5000"
+
+        # Base parameters
+        params = {
+            'accountType': 'UNIFIED',
+            'coin': 'USDT'
+        }
+
+        # Sort parameters alphabetically and create query string
+        sorted_params = sorted(params.items())
+        query_string = '&'.join([f"{key}={value}" for key, value in sorted_params])
+
+        # Generate signature
+        signature = get_signature(timestamp, recv_window, query_string)
+
+        # V5 API endpoint for wallet balance in Unified account
+        url = "https://api.bybit.com/v5/account/wallet-balance"
+
+        headers = {
+            'X-BAPI-SIGN': signature,
+            'X-BAPI-API-KEY': API_KEY,
+            'X-BAPI-TIMESTAMP': timestamp,
+            'X-BAPI-RECV-WINDOW': recv_window
+        }
+
+        # Make the request
+        response = requests.get(f"{url}?{query_string}", headers=headers)
+        data = response.json()
+
+        if data['retCode'] == 0 and 'list' in data['result']:
+            # Extract total wallet balance for USDT from the nested 'coin' list
+            wallet_balance = None
+            if data['result']['list']:
+                # Assuming the first item in the list contains the coin information
+                coin_list = data['result']['list'][0].get('coin', [])
+                for coin_info in coin_list:
+                    if coin_info.get('coin') == 'USDT':
+                        wallet_balance = coin_info.get('walletBalance')
+                        break
+    
+            if wallet_balance is not None:
+                 return jsonify({
+                    'success': True,
+                    'wallet_balance': wallet_balance
+                })
+            else:
+                 return jsonify({
+                    'success': False,
+                    'error': 'USDT wallet balance not found in the response'
+                })
+        else:
+            error_msg = f"API Error fetching wallet balance: {data.get('retMsg', 'Unknown error')} (Code: {data.get('retCode', 'Unknown')})"
+            print(error_msg)  # Log the error
+            return jsonify({'success': False, 'error': error_msg})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 def process_trade(trade):
     """Process a single trade - calculate ROI, format timestamps, etc."""
     # Calculate ROI

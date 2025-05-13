@@ -76,12 +76,38 @@ body {
     justify-content: center;
     position: relative;
 }
-/* Position the settings button on the right */
+/* Styles for the settings and logout buttons container */
 .navbar-settings {
-    position: absolute;
-    right: 15px;
-    top: 50%;
-    transform: translateY(-50%);
+    /* Removed absolute positioning */
+}
+
+/* Styles for the wallet balance display */
+.navbar-balance {
+    /* Add some margin for spacing when stacked on small screens */
+    margin-bottom: 10px;
+}
+
+/* Adjust margin for settings buttons when stacked on small screens */
+.navbar-settings .btn {
+    margin-bottom: 10px;
+}
+
+/* Remove bottom margin for the last button in the settings container when stacked */
+.navbar-settings .btn:last-child {
+    margin-bottom: 0;
+}
+
+/* Media query to adjust layout on medium and larger screens */
+@media (min-width: 768px) {
+    .navbar-balance {
+        /* Remove bottom margin on medium and larger screens */
+        margin-bottom: 0;
+    }
+
+    .navbar-settings .btn {
+        /* Remove bottom margin on medium and larger screens */
+        margin-bottom: 0;
+    }
 }
 /* Matrix style for card headers and table headers */
 .matrix-header {
