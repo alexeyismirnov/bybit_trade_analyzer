@@ -44,20 +44,6 @@ new Vue({
             const date = new Date(this.lastUpdated);
             return date.toLocaleString();
         },
-        symbolFilteredOpenTrades() {
-            // Always return all open trades - no filtering by symbol
-            return [...this.openTrades];
-        },
-        sortedOpenTrades() {
-            return [...this.symbolFilteredOpenTrades].sort((a, b) =>
-                parseInt(b.updatedTime) - parseInt(a.updatedTime)
-            );
-        },
-        totalUnrealisedPnl() {
-            return this.symbolFilteredOpenTrades.reduce((sum, trade) => {
-                return sum + parseFloat(trade.unrealisedPnl || 0);
-            }, 0);
-        },
         filteredTrades() {
             // Filter trades based on selected symbol
             if (this.selectedSymbol) {
@@ -161,16 +147,6 @@ new Vue({
                 body.classList.remove('dark-mode');
             }
         },
-        formatOpenTradeSymbol(trade) {
-            if (trade.side === 'Buy') {
-                return '<i class="bi bi-caret-up-fill"></i> ' + trade.symbol;
-            } else {
-                return '<i class="bi bi-caret-down-fill"></i> ' + trade.symbol;
-            }
-        },
-        getOpenTradeDirectionClass(trade) {
-            return trade.side === 'Buy' ? 'positive' : 'negative';
-        },
         setTimePeriod(days) {
             if (this.selectedTimePeriod !== days) {
                 this.selectedTimePeriod = days;
@@ -234,40 +210,6 @@ new Vue({
             .finally(() => {
                 this.loading = false;
             });
-        },
-        formatPrice(price) {
-            if (!price) return '-';
-            return parseFloat(price).toFixed(2);
-        },
-        formatPnl(pnl) {
-            if (!pnl) return '-';
-            return parseFloat(pnl).toFixed(4);
-        },
-        formatRoi(roi) {
-            if (!roi && roi !== 0) return '-';
-            return parseFloat(roi).toFixed(2) + '%';
-        },
-        getPnlClass(value) {
-            if (value === undefined || value === null) return '';
-            const numValue = parseFloat(value);
-            if (isNaN(numValue)) return '';
-            return numValue >= 0 ? 'positive' : 'negative';
-        },
-        getRoiClass(value) {
-            if (value === undefined || value === null) return '';
-            const numValue = parseFloat(value);
-            if (isNaN(numValue)) return '';
-            return numValue >= 0 ? 'positive' : 'negative';
-        },
-        formatUnrealisedPnl(pnl) {
-            if (!pnl) return '-';
-            return parseFloat(pnl).toFixed(4);
-        },
-        getUnrealisedPnlClass(pnl) {
-            if (pnl === undefined || pnl === null) return '';
-            const numPnl = parseFloat(pnl);
-            if (isNaN(numPnl)) return '';
-            return numPnl >= 0 ? 'positive' : 'negative';
         },
         handleCompletedTradesSymbolChange(symbol) {
             this.selectedSymbol = symbol;

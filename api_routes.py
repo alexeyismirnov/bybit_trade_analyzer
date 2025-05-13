@@ -7,6 +7,7 @@ import hashlib
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from cache_manager import CacheManager
+from auth import login_required 
 
 # Load environment variables from .env file
 load_dotenv()
@@ -39,6 +40,7 @@ def get_signature(timestamp, recv_window, query_string):
     return signature
 
 @api_bp.route('/trades')
+@login_required  # Add login_required decorator to protect this endpoint
 def get_completed_trades():
     """Fetch completed USDT Perpetual trades from Bybit Unified Account"""
     try:
@@ -223,6 +225,7 @@ def fetch_open_trades_from_api(symbol=None):
         return []
 
 @api_bp.route('/open-trades')
+@login_required  # Add login_required decorator to protect this endpoint
 def get_open_trades():
     """Fetch open USDT Perpetual trades from Bybit Unified Account"""
     try:
