@@ -10,7 +10,7 @@ Vue.component('nav-bar', {
                         <div class="navbar-balance">
                             <span v-if="loadingBalance">Loading...</span>
                             <span v-else-if="balanceError" class="text-danger">\${ balanceError }</span>
-                            <span v-else-if="walletBalance !== null">Balance: \${ walletBalance } USDT</span>
+                            <span v-else-if="walletBalance !== null">Balance: \${ walletBalance } \${ currencyDisplay } (\${ exchangeDisplay })</span>
                         </div>
                     </div>
 
@@ -36,7 +36,7 @@ Vue.component('nav-bar', {
                         <div class="navbar-balance mb-2">
                             <span v-if="loadingBalance">Loading...</span>
                             <span v-else-if="balanceError" class="text-danger">\${ balanceError }</span>
-                            <span v-else-if="walletBalance !== null">Balance: \${ walletBalance } USDT</span>
+                            <span v-else-if="walletBalance !== null">Balance: \${ walletBalance } \${ currencyDisplay } (\${ exchangeDisplay })</span>
                         </div>
                          <div class="navbar-settings d-flex align-items-baseline justify-content-center">
                             <button class="btn btn-outline-secondary me-2" @click="onSettingsClick">
@@ -55,7 +55,8 @@ Vue.component('nav-bar', {
         return {
             walletBalance: null,
             loadingBalance: false,
-            balanceError: null
+            balanceError: null,
+            exchange: 'bybit' // Default exchange
         };
     },
     props: {
@@ -66,9 +67,33 @@ Vue.component('nav-bar', {
         logoutUrl: {
             type: String,
             required: true
+        },
+        selectedExchange: {
+            type: String,
+            default: 'bybit'
+        }
+    },
+    computed: {
+        exchangeDisplay() {
+            return this.exchange.charAt(0).toUpperCase() + this.exchange.slice(1);
+        },
+        currencyDisplay() {
+            // Different exchanges use different currencies
+            return this.exchange === 'hyperliquid' ? 'USDC' : 'USDT';
+        }
+    },
+    watch: {
+        selectedExchange(newExchange) {
+            if (this.exchange !== newExchange) {
+                this.exchange = newExchange;
+                this.fetchWalletBalance();
+            }
         }
     },
     mounted() {
+        // Initialize exchange from props or localStorage
+        const savedExchange = localStorage.getItem('selectedExchange');
+        this.exchange = savedExchange || this.selectedExchange;
         this.fetchWalletBalance();
     },
     methods: {
@@ -78,7 +103,7 @@ Vue.component('nav-bar', {
         fetchWalletBalance() {
             this.loadingBalance = true;
             this.balanceError = null;
-            axios.get('/api/wallet-balance')
+            axios.get(`/api/wallet-balance?exchange=${this.exchange}`)
                 .then(response => {
                     if (response.data.success) {
                         this.walletBalance = parseFloat(response.data.wallet_balance).toFixed(2);

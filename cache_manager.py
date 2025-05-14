@@ -41,7 +41,8 @@ class CacheManager:
                 Column('formatted_time', String(30)),
                 Column('created_at', String(30)),
                 Column('raw_data', Text),  # Store the full JSON for future use
-                Column('fetched_at', DateTime, default=datetime.utcnow)
+                Column('fetched_at', DateTime, default=datetime.utcnow),
+                Column('exchange', String(20), default='bybit')  # Added exchange column with default value
             )
             
             # Define cache ranges table to track what time ranges we've cached
@@ -53,7 +54,8 @@ class CacheManager:
                 Column('symbol', String(20), nullable=True),  # null means "all symbols"
                 Column('oldest_timestamp', String(30)),  # oldest trade timestamp we have cached (ms)
                 Column('newest_timestamp', String(30)),  # newest trade timestamp we have cached (ms)
-                Column('last_updated', DateTime, default=datetime.utcnow)
+                Column('last_updated', DateTime, default=datetime.utcnow),
+                Column('exchange', String(20), default='bybit')  # Added exchange column with default value
             )
             
             # Create tables if they don't exist
@@ -67,7 +69,7 @@ class CacheManager:
         """Check if caching is available"""
         return self.engine is not None and self.trades_table is not None and self.cache_ranges_table is not None
     
-    def get_cached_range(self, symbol=None):
+    def get_cached_range(self, symbol=None, exchange=None):
         """Get cached time range for a symbol from the database"""
         if not self.is_cache_available():
             return None  # No database or table
@@ -84,6 +86,12 @@ class CacheManager:
                 else:
                     query = query.where(self.cache_ranges_table.c.symbol == None)
                 
+                # Filter by exchange if provided
+                if exchange:
+                    query = query.where(self.cache_ranges_table.c.exchange == exchange)
+                else:
+                    query = query.where(self.cache_ranges_table.c.exchange == 'bybit')  # Default to bybit
+                
                 # Execute query
                 row = conn.execute(query).fetchone()
                 
@@ -95,8 +103,8 @@ class CacheManager:
                     'symbol': row.symbol,
                     'oldest_timestamp': int(row.oldest_timestamp),
                     'newest_timestamp': int(row.newest_timestamp),
-                    'last_updated': row.last_updated
-                    # Removed is_complete field
+                    'last_updated': row.last_updated,
+                    'exchange': row.exchange
                 }
         
         except Exception as e:
@@ -132,7 +140,7 @@ class CacheManager:
         
         return uncached_ranges
     
-    def get_cached_trades(self, symbol=None, start_time=None, end_time=None):
+    def get_cached_trades(self, symbol=None, start_time=None, end_time=None, exchange=None):
         """Get cached trades from the database for a specific time period"""
         if not self.is_cache_available():
             return []  # Database not available
@@ -158,6 +166,12 @@ class CacheManager:
                         func.cast(self.trades_table.c.updatedTime, BigInteger) <= end_time
                     )
                 
+                # Filter by exchange if provided
+                if exchange:
+                    conditions.append(self.trades_table.c.exchange == exchange)
+                else:
+                    conditions.append(self.trades_table.c.exchange == 'bybit')  # Default to bybit
+                
                 if conditions:
                     query = query.where(and_(*conditions))
                 
@@ -180,14 +194,14 @@ class CacheManager:
                     
                     trades.append(trade)
                 
-                print(f"Retrieved {len(trades)} cached trades for {symbol or 'all symbols'}")
+                print(f"Retrieved {len(trades)} cached trades for {symbol or 'all symbols'} from {exchange or 'bybit'}")
                 return trades
         
         except Exception as e:
             print(f"Error retrieving cached trades: {e}")
             return []
     
-    def cache_trades(self, trades, process_trade_func=None):
+    def cache_trades(self, trades, process_trade_func=None, exchange='bybit'):
         """Cache trades in the database"""
         if not self.is_cache_available() or not trades:
             return  # Database not available or no trades to cache
@@ -201,6 +215,7 @@ class CacheManager:
                     query = select(self.trades_table).where(self.trades_table.c.updatedTime == trade['updatedTime'])
                     if 'symbol' in trade:
                         query = query.where(self.trades_table.c.symbol == trade['symbol'])
+                    query = query.where(self.trades_table.c.exchange == exchange)
                     
                     existing = conn.execute(query).fetchone()
                     
@@ -223,19 +238,20 @@ class CacheManager:
                             'formatted_time': processed_trade.get('formatted_time', ''),
                             'created_at': str(int(int(trade.get('updatedTime', '0'))/1000)),
                             'raw_data': json.dumps(trade),
-                            'fetched_at': datetime.utcnow()
+                            'fetched_at': datetime.utcnow(),
+                            'exchange': exchange
                         }
                         
                         # Insert into database
                         conn.execute(self.trades_table.insert().values(**insert_data))
                 
                 # Transaction will be automatically committed here
-                print(f"Cached {len(trades)} trades in database")
+                print(f"Cached {len(trades)} trades in database for {exchange}")
         
         except Exception as e:
             print(f"Error caching trades: {e}")
     
-    def update_cache_ranges(self, symbol, start_time, end_time):
+    def update_cache_ranges(self, symbol, start_time, end_time, exchange='bybit'):
         """Update the cache_ranges table with new information"""
         if not self.is_cache_available():
             return
@@ -258,6 +274,9 @@ class CacheManager:
                 if end_time:
                     conditions.append(func.cast(self.trades_table.c.updatedTime, BigInteger) <= end_time)
                 
+                # Add exchange filter
+                conditions.append(self.trades_table.c.exchange == exchange)
+                
                 if conditions:
                     min_query = min_query.where(and_(*conditions))
                     max_query = max_query.where(and_(*conditions))
@@ -268,13 +287,14 @@ class CacheManager:
                 if not oldest_timestamp or not newest_timestamp:
                     return  # No trades found
                 
-                # Check if a range entry already exists for this symbol
+                # Check if a range entry already exists for this symbol and exchange
                 # SQLAlchemy 2.x syntax
                 query = select(self.cache_ranges_table)
                 if symbol:
                     query = query.where(self.cache_ranges_table.c.symbol == symbol)
                 else:
                     query = query.where(self.cache_ranges_table.c.symbol == None)
+                query = query.where(self.cache_ranges_table.c.exchange == exchange)
                 
                 existing_range = conn.execute(query).fetchone()
                 
@@ -288,6 +308,7 @@ class CacheManager:
                         update_stmt = update_stmt.where(self.cache_ranges_table.c.symbol == symbol)
                     else:
                         update_stmt = update_stmt.where(self.cache_ranges_table.c.symbol == None)
+                    update_stmt = update_stmt.where(self.cache_ranges_table.c.exchange == exchange)
                     
                     update_data = {
                         'oldest_timestamp': min(int(existing_range.oldest_timestamp), int(oldest_timestamp)),
@@ -296,26 +317,26 @@ class CacheManager:
                     }
                     
                     conn.execute(update_stmt.values(**update_data))
-                    print(f"Updated cache range for {symbol or 'all symbols'}: {update_data['oldest_timestamp']} to {update_data['newest_timestamp']}")
+                    print(f"Updated cache range for {symbol or 'all symbols'} on {exchange}: {update_data['oldest_timestamp']} to {update_data['newest_timestamp']}")
                 else:
                     # Insert new range
                     insert_data = {
                         'symbol': symbol,
                         'oldest_timestamp': oldest_timestamp,
                         'newest_timestamp': newest_timestamp,
-                        'last_updated': now
-                        # Removed is_complete field
+                        'last_updated': now,
+                        'exchange': exchange
                     }
                     
                     conn.execute(self.cache_ranges_table.insert().values(**insert_data))
-                    print(f"Created new cache range for {symbol or 'all symbols'}: {oldest_timestamp} to {newest_timestamp}")
+                    print(f"Created new cache range for {symbol or 'all symbols'} on {exchange}: {oldest_timestamp} to {newest_timestamp}")
                 
                 # Transaction will be automatically committed here
         
         except Exception as e:
             print(f"Error updating cache ranges: {e}")
     
-    def get_most_recent_fetch_time(self, symbol=None, start_time=None, end_time=None):
+    def get_most_recent_fetch_time(self, symbol=None, start_time=None, end_time=None, exchange=None):
         """Get the most recent fetch time for trades in a period"""
         if not self.is_cache_available():
             return None
@@ -339,6 +360,12 @@ class CacheManager:
                     conditions.append(
                         func.cast(self.trades_table.c.updatedTime, BigInteger) <= end_time
                     )
+                
+                # Filter by exchange if provided
+                if exchange:
+                    conditions.append(self.trades_table.c.exchange == exchange)
+                else:
+                    conditions.append(self.trades_table.c.exchange == 'bybit')  # Default to bybit
                 
                 if conditions:
                     query = query.where(and_(*conditions))

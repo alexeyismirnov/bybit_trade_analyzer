@@ -14,12 +14,17 @@ Vue.component('settings-modal', {
         initialTheme: {
             type: String,
             default: 'light'
+        },
+        initialExchange: {
+            type: String,
+            default: 'bybit'
         }
     },
     data() {
         return {
             selectedTimezone: this.initialTimezone,
             selectedTheme: this.initialTheme,
+            selectedExchange: this.initialExchange,
             timezones: [
                 { label: 'UTC', value: 'UTC' },
                 { label: 'GMT', value: 'GMT' },
@@ -33,6 +38,10 @@ Vue.component('settings-modal', {
                 { label: 'Asia/Shanghai', value: 'Asia/Shanghai' },
                 { label: 'Asia/Hong_Kong', value: 'Asia/Hong_Kong' },
                 { label: 'Australia/Sydney', value: 'Australia/Sydney' }
+            ],
+            exchanges: [
+                { label: 'Bybit', value: 'bybit' },
+                { label: 'Hyperliquid', value: 'hyperliquid' }
             ],
             modal: null
         };
@@ -50,6 +59,9 @@ Vue.component('settings-modal', {
         },
         initialTheme(newVal) {
             this.selectedTheme = newVal;
+        },
+        initialExchange(newVal) {
+            this.selectedExchange = newVal;
         }
     },
     mounted() {
@@ -77,11 +89,13 @@ Vue.component('settings-modal', {
             // Save settings to localStorage
             localStorage.setItem('selectedTimezone', this.selectedTimezone);
             localStorage.setItem('theme', this.selectedTheme);
+            localStorage.setItem('selectedExchange', this.selectedExchange);
             
             // Emit event to parent component
             this.$emit('save-settings', {
                 timezone: this.selectedTimezone,
-                theme: this.selectedTheme
+                theme: this.selectedTheme,
+                exchange: this.selectedExchange
             });
             
             // Hide modal
@@ -103,6 +117,12 @@ Vue.component('settings-modal', {
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="exchangeSelect" class="form-label">Select Exchange:</label>
+                            <select class="form-select" id="exchangeSelect" v-model="selectedExchange">
+                                <option v-for="exchangeOption in exchanges" :key="exchangeOption.value" :value="exchangeOption.value">\${ exchangeOption.label }</option>
+                            </select>
+                        </div>
                         <div class="mb-3">
                             <label for="timezoneSelect" class="form-label">Select Timezone:</label>
                             <select class="form-select" id="timezoneSelect" v-model="selectedTimezone">

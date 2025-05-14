@@ -23,6 +23,7 @@ new Vue({
         uniqueSymbols: [],
         theme: 'light',
         selectedSymbol: '', // Add this back to track the selected symbol at the app level
+        selectedExchange: 'bybit', // Default to bybit
         timePeriods: [
             { label: '7D', value: '7' },
             { label: '30D', value: '30' },
@@ -101,6 +102,11 @@ new Vue({
         theme(newTheme) {
             this.applyTheme(newTheme);
         },
+        selectedExchange() {
+            // Refetch data when exchange changes
+            this.fetchTrades();
+            this.fetchOpenTrades();
+        },
         trades() {
              const completedSymbols = this.trades.map(trade => trade.symbol);
              const openSymbols = this.openTrades.map(trade => trade.symbol);
@@ -122,13 +128,26 @@ new Vue({
         onSettingsSaved(settings) {
             this.selectedTimezone = settings.timezone;
             this.theme = settings.theme;
+            
+            // Handle exchange change
+            const exchangeChanged = this.selectedExchange !== settings.exchange;
+            this.selectedExchange = settings.exchange;
+            
             this.applyTheme(settings.theme);
+            
+            // If exchange changed, reset selected symbol and refetch data
+            if (exchangeChanged) {
+                this.selectedSymbol = '';
+                this.fetchTrades();
+                this.fetchOpenTrades();
+            }
         },
         loadSettings() {
             const savedTimezone = localStorage.getItem('selectedTimezone');
             if (savedTimezone) {
                 this.selectedTimezone = savedTimezone;
             }
+            
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme) {
                 this.theme = savedTheme;
@@ -137,6 +156,12 @@ new Vue({
             } else {
                 this.theme = 'light';
             }
+            
+            const savedExchange = localStorage.getItem('selectedExchange');
+            if (savedExchange) {
+                this.selectedExchange = savedExchange;
+            }
+            
             this.applyTheme(this.theme);
         },
         applyTheme(theme) {
@@ -160,6 +185,11 @@ new Vue({
             
             let url = '/api/trades?days=' + this.selectedTimePeriod;
             url += '&cache_check=true';
+            url += '&exchange=' + this.selectedExchange;
+            
+            if (this.selectedSymbol) {
+                url += '&symbol=' + this.selectedSymbol;
+            }
             
             const startTime = performance.now();
             
@@ -172,7 +202,7 @@ new Vue({
                         this.lastUpdated = response.data.cached_at || new Date().toISOString();
                         
                         const endTime = performance.now();
-                        console.log(`Completed trades data fetched in ${(endTime - startTime).toFixed(2)}ms (${this.usingCachedData ? 'from cache' : 'from API'})`);
+                        console.log(`Completed trades data fetched in ${(endTime - startTime).toFixed(2)}ms (${this.usingCachedData ? 'from cache' : 'from API'}) for ${this.selectedExchange}`);
                     } else {
                         this.error = response.data.error || 'Failed to fetch completed trades';
                     }
@@ -185,31 +215,36 @@ new Vue({
                 });
         },
         fetchOpenTrades() {
-        this.loading = true;
-        this.error = null;
-        
-        // Always fetch all open trades without any symbol filtering
-        const url = '/api/open-trades';
-        
-        const startTime = performance.now();
-        
-        axios.get(url)
-            .then(response => {
-                if (response.data.success) {
-                    this.openTrades = response.data.open_trades;
-                    
-                    const endTime = performance.now();
-                    console.log(`Open trades data fetched in ${(endTime - startTime).toFixed(2)}ms`);
-                } else {
-                    this.error = response.data.error || 'Failed to fetch open trades';
-                }
-            })
-            .catch(error => {
-                this.error = error.message || 'An error occurred while fetching open trades';
-            })
-            .finally(() => {
-                this.loading = false;
-            });
+            this.loading = true;
+            this.error = null;
+            
+            // Always fetch all open trades without any symbol filtering
+            let url = '/api/open-trades';
+            url += '?exchange=' + this.selectedExchange;
+            
+            if (this.selectedSymbol) {
+                url += '&symbol=' + this.selectedSymbol;
+            }
+            
+            const startTime = performance.now();
+            
+            axios.get(url)
+                .then(response => {
+                    if (response.data.success) {
+                        this.openTrades = response.data.open_trades;
+                        
+                        const endTime = performance.now();
+                        console.log(`Open trades data fetched in ${(endTime - startTime).toFixed(2)}ms for ${this.selectedExchange}`);
+                    } else {
+                        this.error = response.data.error || 'Failed to fetch open trades';
+                    }
+                })
+                .catch(error => {
+                    this.error = error.message || 'An error occurred while fetching open trades';
+                })
+                .finally(() => {
+                    this.loading = false;
+                });
         },
         handleCompletedTradesSymbolChange(symbol) {
             this.selectedSymbol = symbol;
