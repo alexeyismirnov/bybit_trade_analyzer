@@ -102,11 +102,6 @@ new Vue({
         theme(newTheme) {
             this.applyTheme(newTheme);
         },
-        selectedExchange() {
-            // Refetch data when exchange changes
-            this.fetchTrades();
-            this.fetchOpenTrades();
-        },
         trades() {
              const completedSymbols = this.trades.map(trade => trade.symbol);
              const openSymbols = this.openTrades.map(trade => trade.symbol);

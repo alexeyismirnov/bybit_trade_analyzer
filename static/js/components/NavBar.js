@@ -10,7 +10,7 @@ Vue.component('nav-bar', {
                         <div class="navbar-balance">
                             <span v-if="loadingBalance">Loading...</span>
                             <span v-else-if="balanceError" class="text-danger">\${ balanceError }</span>
-                            <span v-else-if="walletBalance !== null">Balance: \${ walletBalance } \${ currencyDisplay } (\${ exchangeDisplay })</span>
+                            <span v-else-if="walletBalance !== null">\${ exchangeDisplay }: \${ walletBalance } \${ currencyDisplay }</span>
                         </div>
                     </div>
 
@@ -36,7 +36,7 @@ Vue.component('nav-bar', {
                         <div class="navbar-balance mb-2">
                             <span v-if="loadingBalance">Loading...</span>
                             <span v-else-if="balanceError" class="text-danger">\${ balanceError }</span>
-                            <span v-else-if="walletBalance !== null">Balance: \${ walletBalance } \${ currencyDisplay } (\${ exchangeDisplay })</span>
+                            <span v-else-if="walletBalance !== null">\${ exchangeDisplay }: \${ walletBalance } \${ currencyDisplay }</span>
                         </div>
                          <div class="navbar-settings d-flex align-items-baseline justify-content-center">
                             <button class="btn btn-outline-secondary me-2" @click="onSettingsClick">
