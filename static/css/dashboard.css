@@ -272,3 +272,9 @@ body.dark-mode {
 .dark-mode .btn-close {
     filter: invert(1); /* Make close button visible on dark background */
 }
+
+/* Prevent wrapping for symbol and icon in open trades table */
+.table td.positive,
+.table td.negative {
+    white-space: nowrap;
+}

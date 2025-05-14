@@ -70,14 +70,18 @@ Vue.component('open-trades-table', {
     },
     methods: {
         formatSymbol(trade) {
-            if (trade.side === 'Buy') {
-                return '<i class="bi bi-caret-up-fill"></i> ' + trade.symbol;
+            let symbol = trade.symbol;
+            if (symbol.endsWith(':USDT')) {
+                symbol = symbol.slice(0, -5); // Remove ':USDT'
+            }
+            if (trade.side === 'long') {
+                return '<i class="bi bi-caret-up-fill"></i> ' + symbol;
             } else {
-                return '<i class="bi bi-caret-down-fill"></i> ' + trade.symbol;
+                return '<i class="bi bi-caret-down-fill"></i> ' + symbol;
             }
         },
         getDirectionClass(trade) {
-            return trade.side === 'Buy' ? 'positive' : 'negative';
+            return trade.side === 'long' ? 'positive' : 'negative';
         },
         formatPrice(price) {
             if (!price) return '-';
