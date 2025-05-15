@@ -20,6 +20,7 @@ BYBIT_API_SECRET = os.environ.get('BYBIT_API_SECRET', '')
 HYPERLIQUID_API_KEY = os.environ.get('HYPERLIQUID_API_KEY', '')
 HYPERLIQUID_API_SECRET = os.environ.get('HYPERLIQUID_API_SECRET', '')
 HYPERLIQUID_WALLET_ADDRESS = os.environ.get('HYPERLIQUID_WALLET_ADDRESS', '')
+HYPERLIQUID_PRIVATE_KEY = os.environ.get('HYPERLIQUID_PRIVATE_KEY', '')
 
 # Initialize cache manager
 DB_URL = os.environ.get('DATABASE_URL', '')
@@ -28,7 +29,7 @@ cache_manager = CacheManager(DB_URL)
 # Initialize exchange objects
 exchanges = {
     'bybit': BybitExchange(BYBIT_API_KEY, BYBIT_API_SECRET, cache_manager),
-    'hyperliquid': HyperliquidExchange(HYPERLIQUID_API_KEY, HYPERLIQUID_API_SECRET, HYPERLIQUID_WALLET_ADDRESS, cache_manager)
+    'hyperliquid': HyperliquidExchange(HYPERLIQUID_API_KEY, HYPERLIQUID_API_SECRET, HYPERLIQUID_WALLET_ADDRESS, HYPERLIQUID_PRIVATE_KEY, cache_manager)
 }
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
@@ -158,6 +159,41 @@ def get_open_trades():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+
+@api_bp.route('/close-trade', methods=['POST'])
+@login_required  # Add login_required decorator to protect this endpoint
+def close_trade():
+    """Close an open trade on the selected exchange"""
+    try:
+        data = request.get_json()
+        exchange_name = data.get('exchange')
+        trade_data = data.get('trade_data')
+
+        if not exchange_name or not trade_data:
+            print("Missing exchange or trade data")
+            return jsonify({'success': False, 'error': 'Missing exchange or trade data'}), 400
+
+        # Get the appropriate exchange object
+        if exchange_name not in exchanges:
+            print(f"Exchange {exchange_name} not supported")
+            return jsonify({'success': False, 'error': f"Exchange {exchange_name} not supported"}), 400
+
+        exchange = exchanges[exchange_name]
+        result = exchange.close_position(trade_data)
+
+        if result and result.get('success', False):
+            print("Trade closed successfully")
+            return jsonify({'success': True, 'message': 'Trade closed successfully', 'result': result.get('result')})
+        else:
+            error_message = result.get('error', 'Failed to close trade') if result else 'Failed to close trade'
+            print(f"Failed to close trade: {error_message}")
+            return jsonify({'success': False, 'error': error_message}), 500
+
+    except Exception as e:
+        print(f"An exception occurred while closing trade: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @api_bp.route('/wallet-balance')
 @login_required  # Add login_required decorator to protect this endpoint

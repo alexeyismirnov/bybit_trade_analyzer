@@ -22,6 +22,7 @@ Vue.component('open-trades-table', {
                                 <th>Current ROI (%)</th>
                                 <th>Realized PnL</th>
                                 <th>Unrealized PnL</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -34,14 +35,17 @@ Vue.component('open-trades-table', {
                                 <td :class="getRoiClass(trade.roi)">\${ formatRoi(trade.roi) }</td>
                                 <td :class="getPnlClass(trade.curRealisedPnl)">\${ formatPnl(trade.curRealisedPnl) }</td>
                                 <td :class="getUnrealisedPnlClass(trade.unrealisedPnl)">\${ formatUnrealisedPnl(trade.unrealisedPnl) }</td>
+                                <td>
+                                    <button class="btn btn-danger btn-sm" @click="closeTrade(trade)">Close</button>
+                                </td>
                             </tr>
                             <tr v-if="sortedTrades.length === 0">
-                                <td colspan="6" class="text-center">No open trades found</td>
+                                <td colspan="7" class="text-center">No open trades found</td>
                             </tr>
                         </tbody>
                         <tfoot v-if="sortedTrades.length > 0">
                             <tr>
-                                <td colspan="5" class="text-end"><strong>Total Unrealized PnL:</strong></td>
+                                <td colspan="6" class="text-end"><strong>Total Unrealized PnL:</strong></td>
                                 <td :class="getUnrealisedPnlClass(totalUnrealisedPnl)">\${ formatUnrealisedPnl(totalUnrealisedPnl) }</td>
                             </tr>
                         </tfoot>
@@ -119,6 +123,10 @@ Vue.component('open-trades-table', {
         },
         onRefreshClick() {
             this.$emit('refresh');
+        },
+        closeTrade(trade) {
+            // Emit an event to the parent component to handle closing the trade
+            this.$emit('close-trade', trade);
         }
     }
 });

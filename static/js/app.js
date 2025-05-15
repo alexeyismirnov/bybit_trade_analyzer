@@ -243,6 +243,33 @@ new Vue({
         },
         handleCompletedTradesSymbolChange(symbol) {
             this.selectedSymbol = symbol;
+        },
+        handleCloseTrade(trade) {
+            console.log('Attempting to close trade:', trade);
+            // Implement API call to close the trade
+            axios.post('/api/close-trade', {
+                symbol: trade.symbol,
+                exchange: trade.exchange,
+                trade_data: trade // Sending the whole trade object for now
+            })
+            .then(response => {
+                if (response.data.success) {
+                    console.log('Trade closed successfully:', response.data);
+                    // Refresh trades after successful closure
+                    this.fetchOpenTrades();
+                    this.fetchTrades();
+                    
+                } else {
+                    console.error('Failed to close trade:', response.data.error);
+                    // Show an error message to the user
+                    this.error = response.data.error || 'Failed to close trade';
+                }
+            })
+            .catch(error => {
+                console.error('Error closing trade:', error);
+                // Show a generic error message
+                this.error = 'An error occurred while closing the trade.';
+            });
         }
     }
 });

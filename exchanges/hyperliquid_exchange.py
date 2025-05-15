@@ -5,14 +5,15 @@ import time
 from datetime import datetime
 
 class HyperliquidExchange:
-    def __init__(self, api_key, api_secret, wallet_address, cache_manager):
+    def __init__(self, api_key, api_secret, wallet_address, private_key, cache_manager):
         self.exchange = ccxt.hyperliquid({
             'apiKey': api_key,
             'secret': api_secret,
+            'walletAddress': wallet_address,
+            'privateKey': private_key,
             'enableRateLimit': True,
             'options': {
                 'defaultType': 'swap',
-                'walletAddress': wallet_address,
             }
         })
         self.wallet_address = wallet_address
@@ -310,7 +311,14 @@ class HyperliquidExchange:
                 unrealised_pnl = float(trade.get('unrealizedPnl', 0))
                 contracts = float(trade.get('contracts', 0) or trade.get('info', {}).get('size', 0))
                 mark_price = float(trade.get('markPrice', 0) or trade.get('info', {}).get('markPrice', 0))
-                position_value = contracts * mark_price
+
+                # Try to get notional from 'notional' key first, if markPrice is not available or zero
+                position_value = float(trade.get('notional', 0))
+                if position_value == 0 and mark_price != 0:
+                    position_value = contracts * mark_price
+                elif position_value == 0 and mark_price == 0:
+                    # Fallback to calculating if 'notional' is also not available or zero
+                    position_value = contracts * mark_price
 
                 roi = 0
                 if position_value != 0:
@@ -321,10 +329,19 @@ class HyperliquidExchange:
                 if ":USDC" in symbol_name:
                     symbol_name = symbol_name.replace(":USDC", "")
                 
-                # Map ccxt fields to your existing structure
+                # Determine side based on 'szi' if top-level 'side' is None
+                trade_side = trade.get('side')
+                if trade_side is None and trade.get('info', {}).get('position', {}).get('szi') is not None:
+                    try:
+                        szi = float(trade['info']['position']['szi'])
+                        trade_side = 'long' if szi > 0 else 'short'
+                    except (ValueError, TypeError):
+                        print(f"Could not parse szi to determine side for trade: {trade}")
+                        trade_side = None # Keep side as None if parsing fails
+                        
                 open_trades.append({
                     'symbol': symbol_name,  # Use cleaned symbol name
-                    'side': trade.get('side'),
+                    'side': trade_side,
                     'size': contracts,
                     'avgPrice': trade.get('entryPrice', trade.get('info', {}).get('avgPrice')),
                     'markPrice': mark_price,
@@ -405,6 +422,71 @@ class HyperliquidExchange:
             print(f"Error fetching wallet balance from Hyperliquid: {str(e)}")
             raise e
 
+    def close_position(self, trade_data):
+        """Close an open position on Hyperliquid"""
+        try:
+            symbol = trade_data.get('symbol')
+            size = trade_data.get('size')
+
+            if not symbol or not size:
+                return {'success': False, 'error': 'Missing trade data for closing position'}
+
+            # Determine the side from the size value if side is None
+            side = trade_data.get('side')
+            if side is None:
+                # Try to determine side from size
+                if size > 0:
+                    side = 'long'
+                else:
+                    side = 'short'
+                print(f"Determined side from size: {side}")
+
+            # Determine the opposite side to close the position
+            close_side = 'sell' if side.lower() == 'long' else 'buy'
+            hyperliquid_symbol = f"{symbol}:USDC"
+
+            print(f"Closing {side} position for {symbol} (using {hyperliquid_symbol}) with size {size}")
+
+            # Set slippage parameters
+            slippage_percent = 1  
+            
+            # Calculate price with slippage based on side
+            # For sell orders (closing long), we accept a lower price with slippage
+            # For buy orders (closing short), we accept a higher price with slippage
+            slippage_multiplier = (100 - slippage_percent) / 100 if close_side == 'sell' else (100 + slippage_percent) / 100
+            
+            current_price = trade_data.get('markPrice') or trade_data.get('avgPrice')
+            price_with_slippage = float(current_price) * slippage_multiplier
+
+            # Try to create an order to close the position
+            order = self.exchange.create_order(
+                symbol=hyperliquid_symbol,
+                type='market',
+                side=close_side,
+                amount=abs(size),  # Use absolute value to handle negative sizes
+                price=price_with_slippage, 
+                params={
+                    'reduceOnly': True,  # Ensure this order only reduces the position
+                }
+            )
+
+            return {'success': True, 'result': order}
+
+        except Exception as e:
+            print(f"Error closing position on Hyperliquid: {str(e)}")
+            
+            # Special handling for authentication errors
+            error_str = str(e)
+            if "privateKey" in error_str:
+                return {
+                    'success': False, 
+                    'error': error_str,
+                    'auth_error': True,
+                    'message': "Hyperliquid requires a private key for trading. Please check your API configuration."
+                }
+            
+            return {'success': False, 'error': error_str}
+ 
     def process_trade(self, trade):
         """Process a single trade - calculate ROI, format timestamps, etc."""
         try:

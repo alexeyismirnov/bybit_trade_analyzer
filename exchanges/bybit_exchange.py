@@ -193,6 +193,45 @@ class BybitExchange:
             print(f"Error fetching wallet balance from Bybit: {str(e)}")
             raise e
 
+    def close_position(self, trade_data):
+        """Close an open position on Bybit"""
+        try:
+            symbol = trade_data.get('symbol')
+            side = trade_data.get('side')
+            size = trade_data.get('size')
+            # For Bybit, we might need positionIdx for unified margin accounts
+            # position_idx = trade_data.get('positionIdx') # Assuming positionIdx is available in trade_data if needed
+
+            if not symbol or not side or not size:
+                return {'success': False, 'error': 'Missing trade data for closing position'}
+
+            # Determine the opposite side to close the position
+            close_side = 'sell' if side.lower() == 'long' else 'buy'
+
+            # Create a market order to close the position
+            params = {
+                'category': 'linear', # Specify category for Bybit
+                'reduceOnly': True # Ensure this order only reduces the position
+            }
+            # if position_idx is not None:
+            #     params['positionIdx'] = position_idx
+
+            order = self.exchange.create_order(
+                symbol=symbol,
+                type='market',
+                side=close_side,
+                amount=size,
+                params=params
+            )
+
+            print(f"Close order placed on Bybit: {order}")
+
+            return {'success': True, 'result': order}
+
+        except Exception as e:
+            print(f"Error closing position on Bybit: {str(e)}")
+            return {'success': False, 'error': str(e)}
+
     def process_trade(self, trade):
         """Process a single trade - calculate ROI, format timestamps, etc."""
         # Calculate ROI
