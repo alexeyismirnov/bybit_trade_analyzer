@@ -34,6 +34,99 @@ exchanges = {
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
+# Webhook PIN (loaded from environment variables)
+WEBHOOK_PIN = os.environ.get('WEBHOOK_PIN', '')
+
+@api_bp.route('/webhook', methods=['POST'])
+def webhook_handler():
+    """Handle incoming Tradingview webhooks"""
+    try:
+        data = request.get_json()
+
+        # Authenticate with PIN
+        pin = data.get('PIN')
+        if not pin or pin != WEBHOOK_PIN:
+            return jsonify({'success': False, 'error': 'Invalid PIN'}), 401
+
+        # Extract order parameters
+        exchange_name = data.get('EXCHANGE', '').lower()
+        symbol = data.get('SYMBOL')
+        side = data.get('SIDE')
+        # price = data.get('PRICE') # Not needed for market order
+        quantity = data.get('QUANTITY')
+
+        if not exchange_name or not symbol or not side or not quantity:
+            return jsonify({'success': False, 'error': 'Missing order parameters'}), 400
+
+        # Get the appropriate exchange object
+        if exchange_name not in exchanges:
+            return jsonify({'success': False, 'error': f"Exchange {exchange_name} not supported"}), 400
+
+        exchange = exchanges[exchange_name]
+
+        # Convert symbol format if necessary (e.g., for Bybit and Hyperliquid)
+        if exchange_name == 'bybit' and symbol and symbol.endswith('.P'):
+            symbol = symbol.replace('.P', '').replace('USDT', '/USDT')
+            print(f"Converted Bybit symbol to: {symbol}")
+        elif exchange_name == 'hyperliquid' and symbol and symbol.endswith('.P'):
+             # Convert SOLUSDT.P to SOL/USDC:USDC
+            symbol = symbol.replace('USDT.P', '/USDC:USDC')
+            print(f"Converted Hyperliquid symbol to: {symbol}")
+
+        order_params = {}
+
+        if exchange_name == 'bybit':
+            order_params = {
+                'category': 'linear' # Assuming linear for perpetuals on Bybit
+            }
+
+        price_with_slippage  = 0.0
+    
+        # Include price for Hyperliquid market orders for slippage calculation
+        if exchange_name == 'hyperliquid':
+             price = data.get('PRICE')
+             if price is not None:
+                 # Calculate price with slippage for Hyperliquid
+                 slippage_percent = 1 # Default slippage
+                 price = float(price)
+                 side_lower = side.lower()
+
+                 slippage_multiplier = (100 - slippage_percent) / 100 if side_lower == 'sell' else (100 + slippage_percent) / 100
+                 price_with_slippage = price * slippage_multiplier
+
+             else:
+                 # Handle case where price is missing for Hyperliquid
+                 return jsonify({'success': False, 'error': 'Price is required for Hyperliquid market orders'}), 400
+
+
+        if exchange_name == 'hyperliquid':
+            order = exchange.exchange.create_order(
+                symbol=symbol,
+                type='market',
+                side=side.lower(), # Ensure side is lowercase ('buy' or 'sell')
+                amount=float(quantity),
+                price=price_with_slippage,
+                params=order_params
+            )
+        else:
+            order = exchange.exchange.create_order(
+                symbol=symbol,
+                type='market',
+                side=side.lower(), # Ensure side is lowercase ('buy' or 'sell')
+                amount=float(quantity),
+                params=order_params
+            )
+            
+        print(f"Market order placed: {order}")
+
+        return jsonify({'success': True, 'message': 'Order placed successfully', 'order': order})
+
+    except Exception as e:
+        print(f"Error processing webhook: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @api_bp.route('/trades')
 @login_required  # Add login_required decorator to protect this endpoint
@@ -160,6 +253,122 @@ def get_open_trades():
         return jsonify({'success': False, 'error': str(e)})
 
 
+def close_position_unified(exchange_name, trade_data):
+    """Close an open position on the specified exchange"""
+    try:
+        symbol = trade_data.get('symbol')
+        side = trade_data.get('side')
+        size = trade_data.get('size')
+        price = trade_data.get('markPrice') or trade_data.get('avgPrice') # Use markPrice or avgPrice for slippage calculation
+
+        if not symbol or not size:
+            return {'success': False, 'error': 'Missing trade data for closing position'}
+
+        # Get the appropriate exchange object
+        if exchange_name not in exchanges:
+            return {'success': False, 'error': f"Exchange {exchange_name} not supported"}
+
+        exchange = exchanges[exchange_name]
+
+        # Determine the opposite side to close the position
+        # If side is not provided, try to determine from size (Hyperliquid specific)
+        if side is None and exchange_name == 'hyperliquid':
+             if size is not None:
+                 try:
+                     size_float = float(size)
+                     side = 'long' if size_float > 0 else 'short'
+                     print(f"Determined side from size for Hyperliquid: {side}")
+                 except (ValueError, TypeError):
+                     print(f"Could not parse size to determine side for Hyperliquid: {size}")
+                     return {'success': False, 'error': 'Could not determine side from size for Hyperliquid'}
+             else:
+                  return {'success': False, 'error': 'Side or size is missing for closing position'}
+        elif side is None:
+             return {'success': False, 'error': 'Side is missing for closing position'}
+
+
+        close_side = 'sell' if side.lower() == 'long' else 'buy'
+
+        # Convert symbol format if necessary
+        if exchange_name == 'bybit' and symbol and symbol.endswith('.P'):
+            symbol = symbol.replace('.P', '').replace('USDT', '/USDT')
+            print(f"Converted Bybit symbol to: {symbol}")
+        elif exchange_name == 'hyperliquid' and symbol:
+             # Convert SOLUSDT.P or SOLUSDT to SOL/USDC:USDC
+            if symbol.endswith('.P'):
+                 symbol = symbol.replace('USDT.P', '/USDC:USDC')
+            elif 'USDT' in symbol:
+                 symbol = symbol.replace('USDT', '/USDC:USDC')
+            else:
+                 # Assume it's already in the correct format or needs basic suffix
+                 symbol = f"{symbol}:USDC"
+            print(f"Converted Hyperliquid symbol to: {symbol}")
+
+
+        # Set common order parameters
+        order_params = {
+            'reduceOnly': True # Ensure this order only reduces the position
+        }
+
+        # Add exchange-specific parameters
+        if exchange_name == 'bybit':
+            order_params['category'] = 'linear' # Specify category for Bybit
+        elif exchange_name == 'hyperliquid':
+            # Calculate price with slippage for Hyperliquid
+            slippage_percent = 1 # Default slippage
+            if price is not None:
+                try:
+                    price_float = float(price)
+                    slippage_multiplier = (100 - slippage_percent) / 100 if close_side == 'sell' else (100 + slippage_percent) / 100
+                    price_with_slippage = price_float * slippage_multiplier
+                    # order_params['price'] = price_with_slippage # Remove price from params
+                except (ValueError, TypeError):
+                    print(f"Could not parse price for slippage calculation: {price}")
+                    return {'success': False, 'error': 'Invalid price for slippage calculation'}
+            else:
+                 return {'success': False, 'error': 'Price is required for Hyperliquid market orders'}
+
+        # Create the market order
+        # Conditionally include price for Hyperliquid
+        if exchange_name == 'hyperliquid':
+            order = exchange.exchange.create_order(
+                symbol=symbol,
+                type='market',
+                side=close_side,
+                amount=abs(float(size)), # Use absolute value for amount
+                price=price_with_slippage, # Include price for Hyperliquid
+                params=order_params
+            )
+        else:
+            order = exchange.exchange.create_order(
+                symbol=symbol,
+                type='market',
+                side=close_side,
+                amount=abs(float(size)), # Use absolute value for amount
+                params=order_params
+            )
+
+        print(f"Close order placed on {exchange_name}: {order}")
+
+        return {'success': True, 'result': order}
+
+    except Exception as e:
+        print(f"Error closing position on {exchange_name}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        # Special handling for Hyperliquid authentication errors
+        if exchange_name == 'hyperliquid' and "privateKey" in str(e):
+             return {
+                 'success': False,
+                 'error': str(e),
+                 'auth_error': True,
+                 'message': "Hyperliquid requires a private key for trading. Please check your API configuration."
+             }
+
+        return {'success': False, 'error': str(e)}
+
+
 @api_bp.route('/close-trade', methods=['POST'])
 @login_required  # Add login_required decorator to protect this endpoint
 def close_trade():
@@ -173,13 +382,7 @@ def close_trade():
             print("Missing exchange or trade data")
             return jsonify({'success': False, 'error': 'Missing exchange or trade data'}), 400
 
-        # Get the appropriate exchange object
-        if exchange_name not in exchanges:
-            print(f"Exchange {exchange_name} not supported")
-            return jsonify({'success': False, 'error': f"Exchange {exchange_name} not supported"}), 400
-
-        exchange = exchanges[exchange_name]
-        result = exchange.close_position(trade_data)
+        result = close_position_unified(exchange_name, trade_data)
 
         if result and result.get('success', False):
             print("Trade closed successfully")
@@ -187,6 +390,10 @@ def close_trade():
         else:
             error_message = result.get('error', 'Failed to close trade') if result else 'Failed to close trade'
             print(f"Failed to close trade: {error_message}")
+            # Check for auth error message from unified function
+            if result and result.get('auth_error'):
+                 error_message = result.get('message', error_message)
+                 return jsonify({'success': False, 'error': error_message}), 401 # Use 401 for auth errors
             return jsonify({'success': False, 'error': error_message}), 500
 
     except Exception as e:
