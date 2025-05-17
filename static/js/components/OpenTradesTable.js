@@ -75,8 +75,8 @@ Vue.component('open-trades-table', {
     methods: {
         formatSymbol(trade) {
             let symbol = trade.symbol;
-            if (symbol.endsWith(':USDT')) {
-                symbol = symbol.slice(0, -5); // Remove ':USDT'
+            if (symbol.endsWith(':USDT') || symbol.endsWith(':USDC')) {
+                symbol = symbol.slice(0, -5); // Remove postfix
             }
             if (trade.side === 'long') {
                 return '<i class="bi bi-caret-up-fill"></i> ' + symbol;

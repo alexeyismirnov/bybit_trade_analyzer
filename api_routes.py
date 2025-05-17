@@ -66,10 +66,9 @@ def webhook_handler():
 
         # Convert symbol format if necessary (e.g., for Bybit and Hyperliquid)
         if exchange_name == 'bybit' and symbol and symbol.endswith('.P'):
-            symbol = symbol.replace('.P', '').replace('USDT', '/USDT')
+            symbol = symbol.replace('USDT.P', '/USDT:USDT')
             print(f"Converted Bybit symbol to: {symbol}")
         elif exchange_name == 'hyperliquid' and symbol and symbol.endswith('.P'):
-             # Convert SOLUSDT.P to SOL/USDC:USDC
             symbol = symbol.replace('USDT.P', '/USDC:USDC')
             print(f"Converted Hyperliquid symbol to: {symbol}")
 
@@ -289,22 +288,6 @@ def close_position_unified(exchange_name, trade_data):
 
         close_side = 'sell' if side.lower() == 'long' else 'buy'
 
-        # Convert symbol format if necessary
-        if exchange_name == 'bybit' and symbol and symbol.endswith('.P'):
-            symbol = symbol.replace('.P', '').replace('USDT', '/USDT')
-            print(f"Converted Bybit symbol to: {symbol}")
-        elif exchange_name == 'hyperliquid' and symbol:
-             # Convert SOLUSDT.P or SOLUSDT to SOL/USDC:USDC
-            if symbol.endswith('.P'):
-                 symbol = symbol.replace('USDT.P', '/USDC:USDC')
-            elif 'USDT' in symbol:
-                 symbol = symbol.replace('USDT', '/USDC:USDC')
-            else:
-                 # Assume it's already in the correct format or needs basic suffix
-                 symbol = f"{symbol}:USDC"
-            print(f"Converted Hyperliquid symbol to: {symbol}")
-
-
         # Set common order parameters
         order_params = {
             'reduceOnly': True # Ensure this order only reduces the position
@@ -321,7 +304,7 @@ def close_position_unified(exchange_name, trade_data):
                     price_float = float(price)
                     slippage_multiplier = (100 - slippage_percent) / 100 if close_side == 'sell' else (100 + slippage_percent) / 100
                     price_with_slippage = price_float * slippage_multiplier
-                    # order_params['price'] = price_with_slippage # Remove price from params
+
                 except (ValueError, TypeError):
                     print(f"Could not parse price for slippage calculation: {price}")
                     return {'success': False, 'error': 'Invalid price for slippage calculation'}

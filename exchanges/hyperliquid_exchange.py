@@ -324,11 +324,6 @@ class HyperliquidExchange:
                 if position_value != 0:
                     roi = (unrealised_pnl / position_value) * 100
                 
-                # Clean up symbol name - remove ":USDC" suffix
-                symbol_name = trade.get('symbol', '')
-                if ":USDC" in symbol_name:
-                    symbol_name = symbol_name.replace(":USDC", "")
-                
                 # Determine side based on 'szi' if top-level 'side' is None
                 trade_side = trade.get('side')
                 if trade_side is None and trade.get('info', {}).get('position', {}).get('szi') is not None:
@@ -340,7 +335,7 @@ class HyperliquidExchange:
                         trade_side = None # Keep side as None if parsing fails
                         
                 open_trades.append({
-                    'symbol': symbol_name,  # Use cleaned symbol name
+                    'symbol': trade.get('symbol'),
                     'side': trade_side,
                     'size': contracts,
                     'avgPrice': trade.get('entryPrice', trade.get('info', {}).get('avgPrice')),
