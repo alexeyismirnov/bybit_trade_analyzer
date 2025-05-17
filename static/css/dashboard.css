@@ -310,6 +310,11 @@ body.dark-mode {
         flex-direction: column; /* Stack components vertically by default (mobile) */
     }
 
+    /* Decrease font size in tables on mobile */
+    table {
+        font-size: 0.8em;
+    }
+
     .open-trades-table {
         order: 1; /* Open Trades Table first on mobile */
     }
