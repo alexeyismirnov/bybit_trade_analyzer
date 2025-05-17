@@ -25,7 +25,7 @@
 <body>
     <div id="app" class="container">
         <!-- NavBar Component -->
-        <nav-bar 
+        <nav-bar
             title="REDFLOW STRATEGY"
             logout-url="{{ url_for('auth.logout') }}"
             :selected-exchange="selectedExchange"
@@ -42,43 +42,55 @@
             ${ error }
         </div>
         
-        <!-- Performance Charts Component -->
-        <performance-charts
-            :trades="filteredTrades"
-            :top-performing-coins="topPerformingCoins"
-            :selected-time-period="selectedTimePeriod"
-            :time-periods="timePeriods"
-            :last-updated="lastUpdated"
-            :using-cached-data="usingCachedData"
-            :theme="theme"
-            @time-period-changed="setTimePeriod">
-        </performance-charts>
-        
-        <!-- Completed Trades Table Component -->
-        <completed-trades-table
-            :trades="trades"
-            :unique-symbols="uniqueSymbols"
-            :selected-timezone="selectedTimezone"
-            :selected-symbol="selectedSymbol"
-            @symbol-changed="handleCompletedTradesSymbolChange">
-        </completed-trades-table>
+        <div class="dashboard-content">
+            <!-- Components for both desktop and mobile, controlled by CSS -->
+            
+            <!-- Open Trades Table Component -->
+            <div class="open-trades-table">
+                <open-trades-table
+                    :trades="openTrades"
+                    @refresh="fetchOpenTrades"
+                    @close-trade="handleCloseTrade">
+                </open-trades-table>
+            </div>
 
-        <!-- Open Trades Table Component -->
-        <open-trades-table
-            :trades="openTrades"
-            @refresh="fetchOpenTrades"
-            @close-trade="handleCloseTrade">
-        </open-trades-table>
-        
-        <!-- Settings Modal Component -->
-        <settings-modal 
-            :show="isSettingsModalVisible" 
-            :initial-timezone="selectedTimezone"
-            :initial-theme="theme"
-            :initial-exchange="selectedExchange"
-            @hidden="hideSettingsModal"
-            @save-settings="onSettingsSaved">
-        </settings-modal>
+            <!-- Completed Trades Table Component -->
+            <div class="completed-trades-table">
+                <completed-trades-table
+                    :trades="trades"
+                    :unique-symbols="uniqueSymbols"
+                    :selected-timezone="selectedTimezone"
+                    :selected-symbol="selectedSymbol"
+                    @symbol-changed="handleCompletedTradesSymbolChange">
+                </completed-trades-table>
+            </div>
+
+            <!-- Performance Charts Component (Desktop Only) -->
+            <div class="performance-charts desktop-only">
+                <performance-charts
+                    :trades="filteredTrades"
+                    :top-performing-coins="topPerformingCoins"
+                    :selected-time-period="selectedTimePeriod"
+                    :time-periods="timePeriods"
+                    :last-updated="lastUpdated"
+                    :using-cached-data="usingCachedData"
+                    :theme="theme"
+                    @time-period-changed="setTimePeriod">
+                </performance-charts>
+            </div>
+            
+            <!-- Settings Modal Component -->
+            <div class="settings-modal">
+                <settings-modal
+                    :show="isSettingsModalVisible"
+                    :initial-timezone="selectedTimezone"
+                    :initial-theme="theme"
+                    :initial-exchange="selectedExchange"
+                    @hidden="hideSettingsModal"
+                    @save-settings="onSettingsSaved">
+                </settings-modal>
+            </div>
+        </div>
     </div>
 
     <!-- Bootstrap Bundle with Popper -->

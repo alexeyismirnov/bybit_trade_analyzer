@@ -278,3 +278,79 @@ body.dark-mode {
 .table td.negative {
     white-space: nowrap;
 }
+
+/* Default styles for desktop-only elements */
+.desktop-only {
+    display: block;
+}
+
+/* Styles for mobile view (screens smaller than 768px) */
+@media (max-width: 767px) {
+    body {
+        background-image: none !important; /* Remove background image on small screens */
+        background-color: var(--background-color, #ffffff); /* White background by default */
+        color: var(--text-color, #000000); /* Black text by default */
+    }
+
+    body.dark-mode {
+        background-color: #000000; /* Black background in dark mode */
+        color: #ffffff; /* White text in dark mode */
+    }
+
+    .desktop-only {
+        display: none; /* Hide desktop-only elements on small screens */
+    }
+
+    .hide-on-mobile {
+        display: none !important; /* Hide elements with this class on mobile */
+    }
+
+    .dashboard-content {
+        display: flex;
+        flex-direction: column; /* Stack components vertically by default (mobile) */
+    }
+
+    .open-trades-table {
+        order: 1; /* Open Trades Table first on mobile */
+    }
+
+    .completed-trades-table {
+        order: 2; /* Completed Trades Table second on mobile */
+    }
+
+    .performance-charts {
+        order: 3; /* Performance Charts third on mobile (hidden) */
+    }
+
+    .settings-modal {
+        order: 4; /* Settings Modal fourth on mobile (hidden) */
+    }
+}
+
+/* Desktop styles (screens 768px and wider) */
+@media (min-width: 768px) {
+    .dashboard-content {
+        display: flex; /* Set display to flex for desktop */
+        flex-direction: column; /* Keep column layout for desktop */
+    }
+
+    .performance-charts {
+        order: 1; /* Performance Charts first on desktop */
+    }
+
+    .completed-trades-table {
+        order: 2; /* Completed Trades Table second on desktop */
+    }
+
+    .open-trades-table {
+        order: 3; /* Open Trades Table third on desktop */
+    }
+
+    .settings-modal {
+        order: 4; /* Settings Modal fourth on desktop */
+    }
+
+    .desktop-only {
+        display: block; /* Ensure desktop-only elements are visible */
+    }
+}

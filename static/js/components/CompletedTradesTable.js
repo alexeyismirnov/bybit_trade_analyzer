@@ -25,7 +25,7 @@ Vue.component('completed-trades-table', {
                             <tr>
                                 <th>Symbol</th>
                                 <!-- Side column removed -->
-                                <th>Quantity</th>
+                                <th class="hide-on-mobile">Quantity</th>
                                 <th>PnL</th>
                                 <th>ROI (%)</th>
                                 <th>Date/Time</th>
@@ -37,13 +37,13 @@ Vue.component('completed-trades-table', {
                                 <td :class="getSymbolDirectionClass(trade)">
                                     <span v-html="formatSymbolWithDirection(trade)"></span>
                                 </td>
-                                <td>\${ trade.qty }</td>
+                                <td class="hide-on-mobile">\${ trade.qty }</td>
                                 <td :class="getPnlClass(trade.closed_pnl)">\${ formatPnl(trade.closed_pnl) }</td>
                                 <td :class="getRoiClass(trade.roi)">\${ formatRoi(trade.roi) }</td>
                                 <td>\${ formatTimestamp(trade.updatedTime) }</td>
                             </tr>
                             <tr v-if="paginatedTrades.length === 0">
-                                <td colspan="5" class="text-center">No trades found</td>
+                                <td colspan="4" class="text-center">No trades found</td>
                             </tr>
                         </tbody>
                     </table>

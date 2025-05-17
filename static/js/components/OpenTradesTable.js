@@ -17,11 +17,11 @@ Vue.component('open-trades-table', {
                         <thead class="header-row">
                             <tr>
                                 <th>Symbol</th>
-                                <th>Contracts</th>
+                                <th class="hide-on-mobile">Contracts</th>
                                 <th>Notional</th>
                                 <th>Current ROI (%)</th>
-                                <th>Realized PnL</th>
                                 <th>Unrealized PnL</th>
+                                <th>Realized PnL</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -30,22 +30,22 @@ Vue.component('open-trades-table', {
                                 <td :class="getDirectionClass(trade)">
                                     <span v-html="formatSymbol(trade)"></span>
                                 </td>
-                                <td>\${ trade.size }</td>
+                                <td class="hide-on-mobile">\${ trade.size }</td>
                                 <td>\${ formatPrice(trade.positionValue) }</td>
                                 <td :class="getRoiClass(trade.roi)">\${ formatRoi(trade.roi) }</td>
-                                <td :class="getPnlClass(trade.curRealisedPnl)">\${ formatPnl(trade.curRealisedPnl) }</td>
                                 <td :class="getUnrealisedPnlClass(trade.unrealisedPnl)">\${ formatUnrealisedPnl(trade.unrealisedPnl) }</td>
+                                <td :class="getPnlClass(trade.curRealisedPnl)">\${ formatPnl(trade.curRealisedPnl) }</td>
                                 <td>
                                     <button class="btn btn-danger btn-sm" @click="closeTrade(trade)">Close</button>
                                 </td>
                             </tr>
                             <tr v-if="sortedTrades.length === 0">
-                                <td colspan="7" class="text-center">No open trades found</td>
+                                <td colspan="6" class="text-center">No open trades found</td>
                             </tr>
                         </tbody>
                         <tfoot v-if="sortedTrades.length > 0">
                             <tr>
-                                <td colspan="6" class="text-end"><strong>Total Unrealized PnL:</strong></td>
+                                <td colspan="5" class="text-end"><strong>Total Unrealized PnL:</strong></td>
                                 <td :class="getUnrealisedPnlClass(totalUnrealisedPnl)">\${ formatUnrealisedPnl(totalUnrealisedPnl) }</td>
                             </tr>
                         </tfoot>
