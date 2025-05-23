@@ -69,6 +69,27 @@ class CacheManager:
         """Check if caching is available"""
         return self.engine is not None and self.trades_table is not None and self.cache_ranges_table is not None
     
+    def clear_database(self):
+        """Clear all data from the trades and cache_ranges tables"""
+        if not self.is_cache_available():
+            print("Database not available, cannot clear.")
+            return
+        
+        try:
+            with self.engine.begin() as conn:
+                # Delete all rows from trades table
+                conn.execute(self.trades_table.delete())
+                print("Cleared all data from 'trades' table.")
+                
+                # Delete all rows from cache_ranges table
+                conn.execute(self.cache_ranges_table.delete())
+                print("Cleared all data from 'cache_ranges' table.")
+            
+            print("Database cleared successfully.")
+        
+        except Exception as e:
+            print(f"Error clearing database: {e}")
+
     def get_cached_range(self, symbol=None, exchange=None):
         """Get cached time range for a symbol from the database"""
         if not self.is_cache_available():

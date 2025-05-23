@@ -8,7 +8,8 @@ from api_routes import api_bp # Import the API routes blueprint
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_very_secret_key_fallback') # Replace with a strong secret key
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'a_very_secret_key_fallback') # Replace with a strong secret key
+app.config['PERMANENT_SESSION_LIFETIME'] = 2678400 # Set session lifetime to 31 days
 
 # Register blueprints
 app.register_blueprint(auth_bp)

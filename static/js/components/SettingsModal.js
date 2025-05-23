@@ -43,7 +43,8 @@ Vue.component('settings-modal', {
                 { label: 'Bybit', value: 'bybit' },
                 { label: 'Hyperliquid', value: 'hyperliquid' }
             ],
-            modal: null
+            modal: null,
+            isDatabaseAvailable: false // New data property
         };
     },
     watch: {
@@ -75,6 +76,8 @@ Vue.component('settings-modal', {
                 this.modal = new bootstrap.Modal(this.$refs.settingsModal);
                 this.modal.show();
                 this.$refs.settingsModal.addEventListener('hidden.bs.modal', this.onModalHidden);
+                // Fetch database status when modal is shown
+                this.checkDatabaseStatus();
             });
         },
         hideModal() {
@@ -100,6 +103,46 @@ Vue.component('settings-modal', {
             
             // Hide modal
             this.hideModal();
+        },
+        eraseDatabase() {
+            if (confirm("Are you sure you want to erase all cached data? This action cannot be undone.")) {
+                fetch('/api/erase-db', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        // Optionally emit an event to notify parent component
+                        this.$emit('database-erased');
+                    } else {
+                        alert("Error: " + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert("An error occurred while trying to erase the database.");
+                });
+            }
+        },
+        checkDatabaseStatus() {
+            fetch('/api/db-status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.isDatabaseAvailable = data.is_available;
+                    } else {
+                        console.error("Error fetching database status:", data.error);
+                        this.isDatabaseAvailable = false; // Assume not available on error
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching database status:', error);
+                    this.isDatabaseAvailable = false; // Assume not available on error
+                });
         }
     },
     beforeDestroy() {
@@ -138,6 +181,7 @@ Vue.component('settings-modal', {
                         </div>
                     </div>
                     <div class="modal-footer">
+                        <button type="button" class="btn btn-danger me-auto" @click="eraseDatabase" :disabled="!isDatabaseAvailable">Erase DB</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         <button type="button" class="btn btn-primary" @click="saveSettings">Save changes</button>
                     </div>

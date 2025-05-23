@@ -385,6 +385,32 @@ def close_trade():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@api_bp.route('/erase-db', methods=['POST'])
+@login_required  # Protect this endpoint
+def erase_database():
+    """Erase cached database data"""
+    try:
+        if cache_manager.is_cache_available():
+            # Call a method in CacheManager to clear the database
+            cache_manager.clear_database()
+            return jsonify({'success': True, 'message': 'Database erased successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'No database connected'}), 400
+    except Exception as e:
+        print(f"Error erasing database: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@api_bp.route('/db-status', methods=['GET'])
+@login_required  # Protect this endpoint
+def get_db_status():
+    """Check if database is connected"""
+    try:
+        is_available = cache_manager.is_cache_available()
+        return jsonify({'success': True, 'is_available': is_available})
+    except Exception as e:
+        print(f"Error checking database status: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @api_bp.route('/wallet-balance')
 @login_required  # Add login_required decorator to protect this endpoint
 def get_wallet_balance():
