@@ -282,6 +282,142 @@ class HyperliquidExchange:
                             open_position['size'] -= size
                     else:
                         print(f"Warning: Could not find matching open trade for close trade: {direction}")
+                
+                # Handle "Short > Long" - Close a short position and open a long position
+                elif 'Short > Long' in direction:
+                    # First, calculate how much of the short position to close
+                    closed_short_size = 0
+                    remaining_size = size  # This is the total size from the trade info
+                    
+                    # Close existing short positions up to the total size
+                    while remaining_size > 0 and open_positions['short']:
+                        open_position = open_positions['short'][0]
+                        
+                        # Determine how much of this position to close
+                        close_size = min(open_position['size'], remaining_size)
+                        closed_short_size += close_size
+                        
+                        # Calculate total fees (entry + exit)
+                        # Proportionally allocate the fee based on the closed size
+                        position_fee_ratio = close_size / open_position['size']
+                        position_fee = open_position.get('fee', 0) * position_fee_ratio
+                        close_fee = fee * (close_size / size)  # Proportional fee for this close
+                        total_fee = close_fee + position_fee
+                        
+                        # Adjust PNL by subtracting fees - also proportional to the closed size
+                        adjusted_pnl = closed_pnl * (close_size / size) - total_fee
+                        
+                        # Create a completed trade for the closed short position
+                        completed_trade = {
+                            'symbol': clean_symbol,
+                            'side': 'Buy',  # Closing a short position is a buy action
+                            'position_type': 'short',
+                            'avgEntryPrice': open_position['price'],
+                            'avgExitPrice': price,
+                            'qty': close_size,
+                            'closedPnl': str(adjusted_pnl),
+                            'fee': str(total_fee),
+                            'updatedTime': str(timestamp),
+                            'entryTime': str(open_position['timestamp']),
+                            'duration': timestamp - open_position['timestamp'],
+                            'raw_data': {
+                                'open': open_position['trade'],
+                                'close': trade
+                            }
+                        }
+                        
+                        formatted_trades.append(completed_trade)
+                        print(f"Created completed short trade (from Short > Long): Entry @ {open_position['price']}, Exit @ {price}, PNL: {adjusted_pnl}")
+                        
+                        # Update position or remove it if fully closed
+                        if close_size >= open_position['size']:
+                            # Position fully closed
+                            remaining_size -= open_position['size']
+                            open_positions['short'].pop(0)
+                        else:
+                            # Position partially closed
+                            open_position['size'] -= close_size
+                            remaining_size = 0
+                    
+                    # Now open a new long position with the remaining size after closing shorts
+                    new_long_size = size - closed_short_size
+                    if new_long_size > 0:
+                        open_positions['long'].append({
+                            'size': new_long_size,
+                            'price': price,
+                            'timestamp': timestamp,
+                            'trade': trade,
+                            'fee': fee * (new_long_size / size)  # Proportional fee for the new position
+                        })
+                        print(f"Added open long position (from Short > Long): {new_long_size} @ {price}")
+                
+                # Handle "Long > Short" - Close a long position and open a short position
+                elif 'Long > Short' in direction:
+                    # First, calculate how much of the long position to close
+                    closed_long_size = 0
+                    remaining_size = size  # This is the total size from the trade info
+                    
+                    # Close existing long positions up to the total size
+                    while remaining_size > 0 and open_positions['long']:
+                        open_position = open_positions['long'][0]
+                        
+                        # Determine how much of this position to close
+                        close_size = min(open_position['size'], remaining_size)
+                        closed_long_size += close_size
+                        
+                        # Calculate total fees (entry + exit)
+                        # Proportionally allocate the fee based on the closed size
+                        position_fee_ratio = close_size / open_position['size']
+                        position_fee = open_position.get('fee', 0) * position_fee_ratio
+                        close_fee = fee * (close_size / size)  # Proportional fee for this close
+                        total_fee = close_fee + position_fee
+                        
+                        # Adjust PNL by subtracting fees - also proportional to the closed size
+                        adjusted_pnl = closed_pnl * (close_size / size) - total_fee
+                        
+                        # Create a completed trade for the closed long position
+                        completed_trade = {
+                            'symbol': clean_symbol,
+                            'side': 'Sell',  # Closing a long position is a sell action
+                            'position_type': 'long',
+                            'avgEntryPrice': open_position['price'],
+                            'avgExitPrice': price,
+                            'qty': close_size,
+                            'closedPnl': str(adjusted_pnl),
+                            'fee': str(total_fee),
+                            'updatedTime': str(timestamp),
+                            'entryTime': str(open_position['timestamp']),
+                            'duration': timestamp - open_position['timestamp'],
+                            'raw_data': {
+                                'open': open_position['trade'],
+                                'close': trade
+                            }
+                        }
+                        
+                        formatted_trades.append(completed_trade)
+                        print(f"Created completed long trade (from Long > Short): Entry @ {open_position['price']}, Exit @ {price}, PNL: {adjusted_pnl}")
+                        
+                        # Update position or remove it if fully closed
+                        if close_size >= open_position['size']:
+                            # Position fully closed
+                            remaining_size -= open_position['size']
+                            open_positions['long'].pop(0)
+                        else:
+                            # Position partially closed
+                            open_position['size'] -= close_size
+                            remaining_size = 0
+                    
+                    # Now open a new short position with the remaining size after closing longs
+                    new_short_size = size - closed_long_size
+                    if new_short_size > 0:
+                        open_positions['short'].append({
+                            'size': new_short_size,
+                            'price': price,
+                            'timestamp': timestamp,
+                            'trade': trade,
+                            'fee': fee * (new_short_size / size)  # Proportional fee for the new position
+                        })
+                        print(f"Added open short position (from Long > Short): {new_short_size} @ {price}")
         
         return formatted_trades
 

@@ -34,6 +34,7 @@ def do_login():
     password = request.form.get('password')
 
     if username == AUTH_USERNAME and password == AUTH_PASSWORD:
+        session.permanent = True
         session['logged_in'] = True
         return redirect(url_for('auth.dashboard')) # Use blueprint name for url_for
     else:
