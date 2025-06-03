@@ -142,10 +142,9 @@ class HyperliquidExchange:
                 size = float(trade_info.get('sz', 0))
                 price = float(trade_info.get('px', 0))
                 timestamp = int(trade_info.get('time', 0))
-                closed_pnl = float(trade_info.get('closedPnl', 0))
                 fee = float(trade_info.get('fee', 0))
                 
-                print(f"Processing trade: {direction} {size} @ {price}")
+                print(f"Processing trade: {symbol_name} {direction} {size} @ {price}")
                 
                 # Handle opening positions
                 if 'Open Long' in direction:
@@ -177,8 +176,12 @@ class HyperliquidExchange:
                         # Calculate total fees (entry + exit)
                         total_fee = fee + open_position.get('fee', 0)
                         
+                        # Calculate PnL based on entry and exit prices
+                        # For long positions: (exit_price - entry_price) * size
+                        calculated_pnl = (price - open_position['price']) * size
+                        
                         # Adjust PNL by subtracting fees
-                        adjusted_pnl = closed_pnl - total_fee
+                        adjusted_pnl = calculated_pnl - total_fee
                         
                         # Create a completed trade - for long positions, we need to use 'Sell' 
                         # to match Bybit's convention where closing a long position is a sell action
@@ -189,7 +192,7 @@ class HyperliquidExchange:
                             'avgEntryPrice': open_position['price'],
                             'avgExitPrice': price,
                             'qty': size,
-                            'closedPnl': str(adjusted_pnl),  # Use fee-adjusted PNL
+                            'closedPnl': str(adjusted_pnl),  # Use calculated and fee-adjusted PNL
                             'fee': str(total_fee),  # Include total fees
                             'updatedTime': str(timestamp),
                             'entryTime': str(open_position['timestamp']),
@@ -234,8 +237,12 @@ class HyperliquidExchange:
                         # Calculate total fees (entry + exit)
                         total_fee = fee + open_position.get('fee', 0)
                         
+                        # Calculate PnL based on entry and exit prices
+                        # For short positions: (entry_price - exit_price) * size
+                        calculated_pnl = (open_position['price'] - price) * size
+                        
                         # Adjust PNL by subtracting fees
-                        adjusted_pnl = closed_pnl - total_fee
+                        adjusted_pnl = calculated_pnl - total_fee
                         
                         # Create a completed trade - for short positions, we need to use 'Buy' 
                         # to match Bybit's convention where closing a short position is a buy action
@@ -246,7 +253,7 @@ class HyperliquidExchange:
                             'avgEntryPrice': open_position['price'],
                             'avgExitPrice': price,
                             'qty': size,
-                            'closedPnl': str(adjusted_pnl),  # Use fee-adjusted PNL
+                            'closedPnl': str(adjusted_pnl),  # Use calculated and fee-adjusted PNL
                             'fee': str(total_fee),  # Include total fees
                             'updatedTime': str(timestamp),
                             'entryTime': str(open_position['timestamp']),
@@ -304,8 +311,12 @@ class HyperliquidExchange:
                         close_fee = fee * (close_size / size)  # Proportional fee for this close
                         total_fee = close_fee + position_fee
                         
-                        # Adjust PNL by subtracting fees - also proportional to the closed size
-                        adjusted_pnl = closed_pnl * (close_size / size) - total_fee
+                        # Calculate PnL based on entry and exit prices
+                        # For short positions: (entry_price - exit_price) * size
+                        calculated_pnl = (open_position['price'] - price) * close_size
+                        
+                        # Adjust PNL by subtracting fees
+                        adjusted_pnl = calculated_pnl - total_fee
                         
                         # Create a completed trade for the closed short position
                         completed_trade = {
@@ -372,8 +383,12 @@ class HyperliquidExchange:
                         close_fee = fee * (close_size / size)  # Proportional fee for this close
                         total_fee = close_fee + position_fee
                         
-                        # Adjust PNL by subtracting fees - also proportional to the closed size
-                        adjusted_pnl = closed_pnl * (close_size / size) - total_fee
+                        # Calculate PnL based on entry and exit prices
+                        # For long positions: (exit_price - entry_price) * size
+                        calculated_pnl = (price - open_position['price']) * close_size
+                        
+                        # Adjust PNL by subtracting fees
+                        adjusted_pnl = calculated_pnl - total_fee
                         
                         # Create a completed trade for the closed long position
                         completed_trade = {
