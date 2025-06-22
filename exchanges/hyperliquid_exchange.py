@@ -109,6 +109,9 @@ class HyperliquidExchange:
     def _process_raw_trades(self, raw_trades):
         """Process raw trades to match opens with closes"""
         
+        # Add a small tolerance for floating point comparisons
+        ZERO_THRESHOLD = 1e-10  # Consider anything smaller than this to be zero
+        
         # Group trades by symbol
         trades_by_symbol = {}
         for trade in raw_trades:
@@ -204,21 +207,21 @@ class HyperliquidExchange:
                         }
                         
                         formatted_trades.append(completed_trade)
-                        print(f"Created completed trade: Entry @ {open_position['price']}, Exit @ {price}, PNL: {adjusted_pnl} (after fees: {total_fee})")
+                        print(f"Created completed trade: Entry @ {open_position['price']}, Exit @ {price}, PNL: {calculated_pnl} (after fees: {total_fee})")
                         
-                        # Handle partial closes
-                        if size >= open_position['size']:
+                        # Handle partial closes with floating point tolerance
+                        if size >= open_position['size'] - ZERO_THRESHOLD:
                             # Position fully closed
-                            remaining = size - open_position['size']
+                            remaining = max(0, size - open_position['size'])
                             open_positions['long'].pop(0)
                             
                             # If there's remaining size to close, continue with next open position
-                            while remaining > 0 and open_positions['long']:
+                            while remaining > ZERO_THRESHOLD and open_positions['long']:
                                 next_position = open_positions['long'][0]
-                                if remaining >= next_position['size']:
+                                if remaining >= next_position['size'] - ZERO_THRESHOLD:
                                     # Close this position completely too
+                                    remaining = max(0, remaining - next_position['size'])
                                     open_positions['long'].pop(0)
-                                    remaining -= next_position['size']
                                 else:
                                     # Partially close this position
                                     next_position['size'] -= remaining
@@ -267,19 +270,19 @@ class HyperliquidExchange:
                         formatted_trades.append(completed_trade)
                         print(f"Created completed trade: Entry @ {open_position['price']}, Exit @ {price}, PNL: {adjusted_pnl} (after fees: {total_fee})")
                         
-                        # Handle partial closes
-                        if size >= open_position['size']:
+                        # Handle partial closes with floating point tolerance
+                        if size >= open_position['size'] - ZERO_THRESHOLD:
                             # Position fully closed
-                            remaining = size - open_position['size']
+                            remaining = max(0, size - open_position['size'])
                             open_positions['short'].pop(0)
                             
                             # If there's remaining size to close, continue with next open position
-                            while remaining > 0 and open_positions['short']:
+                            while remaining > ZERO_THRESHOLD and open_positions['short']:
                                 next_position = open_positions['short'][0]
-                                if remaining >= next_position['size']:
+                                if remaining >= next_position['size'] - ZERO_THRESHOLD:
                                     # Close this position completely too
+                                    remaining = max(0, remaining - next_position['size'])
                                     open_positions['short'].pop(0)
-                                    remaining -= next_position['size']
                                 else:
                                     # Partially close this position
                                     next_position['size'] -= remaining
@@ -297,7 +300,7 @@ class HyperliquidExchange:
                     remaining_size = size  # This is the total size from the trade info
                     
                     # Close existing short positions up to the total size
-                    while remaining_size > 0 and open_positions['short']:
+                    while remaining_size > ZERO_THRESHOLD and open_positions['short']:
                         open_position = open_positions['short'][0]
                         
                         # Determine how much of this position to close
@@ -341,9 +344,9 @@ class HyperliquidExchange:
                         print(f"Created completed short trade (from Short > Long): Entry @ {open_position['price']}, Exit @ {price}, PNL: {adjusted_pnl}")
                         
                         # Update position or remove it if fully closed
-                        if close_size >= open_position['size']:
+                        if close_size >= open_position['size'] - ZERO_THRESHOLD:
                             # Position fully closed
-                            remaining_size -= open_position['size']
+                            remaining_size = max(0, remaining_size - open_position['size'])
                             open_positions['short'].pop(0)
                         else:
                             # Position partially closed
@@ -352,7 +355,7 @@ class HyperliquidExchange:
                     
                     # Now open a new long position with the remaining size after closing shorts
                     new_long_size = size - closed_short_size
-                    if new_long_size > 0:
+                    if new_long_size > ZERO_THRESHOLD:
                         open_positions['long'].append({
                             'size': new_long_size,
                             'price': price,
@@ -369,7 +372,7 @@ class HyperliquidExchange:
                     remaining_size = size  # This is the total size from the trade info
                     
                     # Close existing long positions up to the total size
-                    while remaining_size > 0 and open_positions['long']:
+                    while remaining_size > ZERO_THRESHOLD and open_positions['long']:
                         open_position = open_positions['long'][0]
                         
                         # Determine how much of this position to close
@@ -413,9 +416,9 @@ class HyperliquidExchange:
                         print(f"Created completed long trade (from Long > Short): Entry @ {open_position['price']}, Exit @ {price}, PNL: {adjusted_pnl}")
                         
                         # Update position or remove it if fully closed
-                        if close_size >= open_position['size']:
+                        if close_size >= open_position['size'] - ZERO_THRESHOLD:
                             # Position fully closed
-                            remaining_size -= open_position['size']
+                            remaining_size = max(0, remaining_size - open_position['size'])
                             open_positions['long'].pop(0)
                         else:
                             # Position partially closed
@@ -424,7 +427,7 @@ class HyperliquidExchange:
                     
                     # Now open a new short position with the remaining size after closing longs
                     new_short_size = size - closed_long_size
-                    if new_short_size > 0:
+                    if new_short_size > ZERO_THRESHOLD:
                         open_positions['short'].append({
                             'size': new_short_size,
                             'price': price,
@@ -433,6 +436,10 @@ class HyperliquidExchange:
                             'fee': fee * (new_short_size / size)  # Proportional fee for the new position
                         })
                         print(f"Added open short position (from Long > Short): {new_short_size} @ {price}")
+                
+                # Clean up any positions with near-zero size
+                open_positions['long'] = [pos for pos in open_positions['long'] if pos['size'] > ZERO_THRESHOLD]
+                open_positions['short'] = [pos for pos in open_positions['short'] if pos['size'] > ZERO_THRESHOLD]
         
         return formatted_trades
 
