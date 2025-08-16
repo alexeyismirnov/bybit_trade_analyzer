@@ -46,7 +46,7 @@ def webhook_handler():
         # Authenticate with PIN
         pin = data.get('PIN')
         if not pin or pin != WEBHOOK_PIN:
-            return jsonify({'success': False, 'error': 'Invalid PIN'}), 401
+            return jsonify({'success': False, 'error': 'Invalid PIN'})
 
         # Extract order parameters
         exchange_name = data.get('EXCHANGE', '').lower()
@@ -54,6 +54,8 @@ def webhook_handler():
         side = data.get('SIDE')
         # price = data.get('PRICE') # Not needed for market order
         quantity = data.get('QUANTITY')
+        tp_price = data.get('TP') 
+        sl_price = data.get('SL') 
 
         if not exchange_name or not symbol or not side or not quantity:
             return jsonify({'success': False, 'error': 'Missing order parameters'}), 400
@@ -79,7 +81,7 @@ def webhook_handler():
                 'category': 'linear' # Assuming linear for perpetuals on Bybit
             }
 
-        price_with_slippage  = 0.0
+        price_with_slippage = 0.0
     
         # Include price for Hyperliquid market orders for slippage calculation
         if exchange_name == 'hyperliquid':
@@ -97,7 +99,7 @@ def webhook_handler():
                  # Handle case where price is missing for Hyperliquid
                  return jsonify({'success': False, 'error': 'Price is required for Hyperliquid market orders'}), 400
 
-
+        # Place the main market order
         if exchange_name == 'hyperliquid':
             order = exchange.exchange.create_order(
                 symbol=symbol,
@@ -117,8 +119,58 @@ def webhook_handler():
             )
             
         print(f"Market order placed: {order}")
+                
+        # Place Take Profit order if TP price is provided
+        if tp_price is not None and tp_price != "":
+            try:
+                # For TP, we need the opposite side of the entry order
+                tp_side = 'sell' if side.lower() == 'buy' else 'buy'
+                
+                tp_params = order_params.copy()
+                tp_params['reduceOnly'] = True  # Ensure this is a reduce-only order
+                
+                tp_order = exchange.exchange.create_order(
+                    symbol=symbol,
+                    type='limit',
+                    side=tp_side,
+                    amount=float(quantity),
+                    price=float(tp_price),
+                    params=tp_params
+                )
+                
+                print(f"Take Profit order placed: {tp_order}")
+            except Exception as e:
+                print(f"Error placing Take Profit order: {str(e)}")
+                # Continue execution even if TP order fails
+        
+        # Place Stop Loss order if SL price is provided
+        if sl_price is not None and sl_price != "":
+            try:
+                # For SL, we need the opposite side of the entry order
+                sl_side = 'sell' if side.lower() == 'buy' else 'buy'
+                
+                sl_params = order_params.copy()
+                sl_params['reduceOnly'] = True  # Ensure this is a reduce-only order
+                sl_params['stopPrice'] = float(sl_price)  # Set the trigger price
+                
+                sl_order = exchange.exchange.create_order(
+                    symbol=symbol,
+                    type='stop',  # Using stop order type for stop loss
+                    side=sl_side,
+                    amount=float(quantity),
+                    price=float(sl_price),
+                    params=sl_params
+                )
+                
+                print(f"Stop Loss order placed: {sl_order}")
+            except Exception as e:
+                print(f"Error placing Stop Loss order: {str(e)}")
+                # Continue execution even if SL order fails
 
-        return jsonify({'success': True, 'message': 'Order placed successfully', 'order': order})
+        return jsonify({
+            'success': True, 
+            'message': 'Orders placed successfully', 
+        })
 
     except Exception as e:
         print(f"Error processing webhook: {str(e)}")
