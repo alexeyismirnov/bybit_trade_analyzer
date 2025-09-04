@@ -59,7 +59,7 @@ def webhook_handler():
         sl_streak = int(data.get('SL streak', 0))
         
         # Default threshold for applying the multiplier
-        sl_streak_threshold = 1
+        sl_streak_threshold = 2
         
         if not exchange_name or not symbol or not side or not quantity:
             return jsonify({'success': False, 'error': 'Missing order parameters'}), 400
@@ -81,8 +81,8 @@ def webhook_handler():
         # Apply quantity multiplier based on SL streak if it exceeds the threshold
         original_quantity = float(quantity)
         if sl_streak > sl_streak_threshold:
-            # Calculate multiplier: 2^(sl_streak - 1)
-            multiplier = 2 ** (sl_streak - 1)
+            # Calculate multiplier: 2^(sl_streak - sl_streak_threshold)
+            multiplier = 2 ** (sl_streak - sl_streak_threshold)
             quantity = original_quantity * multiplier
             print(f"Applied SL streak multiplier: {multiplier}x (SL streak: {sl_streak})")
             print(f"Original quantity: {original_quantity}, New quantity: {quantity}")
