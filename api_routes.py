@@ -80,6 +80,10 @@ def webhook_handler():
             order_params = {
                 'category': 'linear' # Assuming linear for perpetuals on Bybit
             }
+        else:
+            order_params = {
+                'slippage': '0.05'     # Optional: slippage tolerance (5%)
+            }
 
         price_with_slippage = 0.0
     
@@ -106,7 +110,7 @@ def webhook_handler():
                 type='market',
                 side=side.lower(), # Ensure side is lowercase ('buy' or 'sell')
                 amount=float(quantity),
-                price=price_with_slippage,
+                # price=price_with_slippage,
                 params=order_params
             )
         else:
